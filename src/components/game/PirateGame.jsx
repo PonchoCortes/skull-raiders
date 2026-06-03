@@ -22,65 +22,58 @@ function drawSkullMinion(ctx, x, y, angle, vx, vy, hp, maxHp, skinId, t, alive) 
   const dead = hp <= 0;
   const hurt = hp < maxHp;
 
-  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
   ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body / torso
   const bodyColor = dead ? '#374151' : (hurt ? '#7f1d1d' : '#1e293b');
   ctx.fillStyle = bodyColor;
   ctx.beginPath();
   ctx.roundRect(-10, 2, 20, 18, 3);
   ctx.fill();
 
-  // Skin color accent on body
   const skinAccent = getSkinAccent(skinId);
   ctx.fillStyle = skinAccent;
   ctx.fillRect(-8, 4, 16, 4);
 
-  // Legs (ragdoll wobble)
   const legWobble = Math.sin(t * 0.01 + x * 0.05) * (dead ? 0.4 : 0.15);
   ctx.strokeStyle = dead ? '#374151' : '#475569';
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
-  // Left leg
+  
   ctx.save();
   ctx.translate(-5, 20);
   ctx.rotate(legWobble);
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-3, 14); ctx.stroke();
   ctx.restore();
-  // Right leg
+  
   ctx.save();
   ctx.translate(5, 20);
   ctx.rotate(-legWobble);
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(3, 14); ctx.stroke();
   ctx.restore();
 
-  // Arms
   const armWobble = Math.sin(t * 0.008 + y * 0.05) * (dead ? 0.6 : 0.2);
   ctx.strokeStyle = dead ? '#374151' : '#475569';
   ctx.lineWidth = 4;
-  // Left arm
+  
   ctx.save();
   ctx.translate(-10, 6);
   ctx.rotate(-0.3 + armWobble);
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-12, 10); ctx.stroke();
   ctx.restore();
-  // Right arm (holding weapon or raised)
+  
   ctx.save();
   ctx.translate(10, 6);
   ctx.rotate(0.3 - armWobble);
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(12, 10); ctx.stroke();
   ctx.restore();
 
-  // SKULL HEAD
   ctx.save();
   const headBob = dead ? 0.3 : Math.sin(t * 0.005 + x * 0.03) * 0.05;
   ctx.rotate(headBob);
 
-  // Skull shape
   const skullGrad = ctx.createRadialGradient(-3, -5, 1, 0, -5, 13);
   skullGrad.addColorStop(0, dead ? '#6b7280' : '#f8fafc');
   skullGrad.addColorStop(1, dead ? '#374151' : '#cbd5e1');
@@ -89,34 +82,27 @@ function drawSkullMinion(ctx, x, y, angle, vx, vy, hp, maxHp, skinId, t, alive) 
   ctx.arc(0, -10, 13, 0, Math.PI * 2);
   ctx.fill();
 
-  // Jaw
   ctx.fillStyle = dead ? '#4b5563' : '#e2e8f0';
   ctx.beginPath();
   ctx.arc(0, -2, 9, 0, Math.PI);
   ctx.fill();
 
-  // Teeth
   ctx.fillStyle = dead ? '#6b7280' : '#fff';
   for (let ti = -6; ti <= 6; ti += 4) {
     ctx.fillRect(ti - 1, -4, 3, 5);
   }
 
-  // Eyes — change based on state
   const eyeColor = dead ? '#ef4444' : (hurt ? '#fbbf24' : '#1e293b');
   const eyeGlow = dead ? 'rgba(239,68,68,0.8)' : 'none';
 
   ctx.shadowBlur = dead ? 8 : 0;
   ctx.shadowColor = eyeGlow;
 
-  // Left eye
   ctx.fillStyle = dead ? '#ef4444' : '#e2e8f0';
   ctx.beginPath(); ctx.ellipse(-5, -13, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
-
-  // Right eye
   ctx.beginPath(); ctx.ellipse(5, -13, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
 
   if (dead) {
-    // X eyes for dead
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 1.5;
     ctx.shadowBlur = 6;
@@ -125,11 +111,9 @@ function drawSkullMinion(ctx, x, y, angle, vx, vy, hp, maxHp, skinId, t, alive) 
     ctx.beginPath(); ctx.moveTo(3,-15); ctx.lineTo(7,-11); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(7,-15); ctx.lineTo(3,-11); ctx.stroke();
   } else {
-    // Pupils
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(-5, -13, 2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(5, -13, 2, 0, Math.PI * 2); ctx.fill();
-    // Shine
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.beginPath(); ctx.arc(-4, -14, 1, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(6, -14, 1, 0, Math.PI * 2); ctx.fill();
@@ -137,12 +121,10 @@ function drawSkullMinion(ctx, x, y, angle, vx, vy, hp, maxHp, skinId, t, alive) 
 
   ctx.shadowBlur = 0;
 
-  // Skin accessory
   drawSkinAccessory(ctx, skinId, t, dead);
 
-  ctx.restore(); // head
+  ctx.restore(); 
 
-  // HP bar
   if (!dead && hp < maxHp) {
     const bw = 28;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -172,7 +154,6 @@ function drawSkinAccessory(ctx, skinId, t, dead) {
   ctx.rotate(wobble);
 
   if (skinId === 'mariachi') {
-    // Sombrero de mariachi
     ctx.fillStyle = '#1a1a1a';
     ctx.beginPath(); ctx.ellipse(0, -22, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#111';
@@ -180,26 +161,22 @@ function drawSkinAccessory(ctx, skinId, t, dead) {
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(-6, -24, 12, 2);
   } else if (skinId === 'viking') {
-    // Casco vikingo
     ctx.fillStyle = '#6b7280';
     ctx.beginPath(); ctx.arc(0, -18, 10, Math.PI, 0); ctx.fill();
     ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(-12,-18); ctx.lineTo(-16,-12); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(12,-18); ctx.lineTo(16,-12); ctx.stroke();
   } else if (skinId === 'ninja') {
-    // Bandana
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(-13, -17, 26, 6);
     ctx.fillStyle = '#ef4444';
     ctx.fillRect(-13, -18, 26, 2);
   } else if (skinId === 'robot') {
-    // Antena
     ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0,-22); ctx.lineTo(0,-30); ctx.stroke();
     ctx.fillStyle = '#22d3ee';
     ctx.beginPath(); ctx.arc(0,-30, 3, 0, Math.PI*2); ctx.fill();
   } else if (skinId === 'luchador') {
-    // Máscara
     ctx.fillStyle = '#9333ea';
     ctx.beginPath(); ctx.arc(0,-10,13,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = '#fbbf24';
@@ -212,64 +189,35 @@ function drawSkinAccessory(ctx, skinId, t, dead) {
   ctx.restore();
 }
 
-// ---- SHIP DRAWING ----
-function drawShip(ctx, x, y, enemy, skinId, t) {
+// ---- FUNCIÓN DE DIBUJO DE BARCO ----
+function drawShip(ctx, x, y, enemy, skinId, t, playerImg, enemyImg) {
   ctx.save();
   const bob = Math.sin(t * 0.003 + x * 0.01) * 4;
   ctx.translate(x, y + bob);
 
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.beginPath(); ctx.ellipse(0, 18, 75, 12, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); 
+  ctx.ellipse(0, 60, 170, 25, 0, 0, Math.PI * 2); 
+  ctx.fill();
 
-  // Hull
-  ctx.beginPath();
-  ctx.moveTo(-72,10); ctx.quadraticCurveTo(0,48,72,10);
-  ctx.lineTo(52,-20); ctx.lineTo(-52,-20); ctx.closePath();
+  const img = enemy ? enemyImg : playerImg;
+  
+  if (img && img.complete && img.naturalWidth > 0) {
+    const renderW = 450; 
+    const renderH = 450; 
 
-  const hullColors = {
-    classic:   [enemy ? '#0f172a' : '#5c3010', enemy ? '#1e293b' : '#7b4b2a'],
-    golden:    [enemy ? '#0f172a' : '#92400e', enemy ? '#1e293b' : '#d97706'],
-    obsidian:  ['#0f172a','#1e293b'],
-    ghost:     ['#2e1065','#4c1d95'],
-    mariachi:  [enemy ? '#0f172a' : '#7f1d1d', enemy ? '#1e293b' : '#dc2626'],
-    steampunk: [enemy ? '#0f172a' : '#78350f', enemy ? '#1e293b' : '#92400e'],
-    infernal:  [enemy ? '#0f172a' : '#7f1d1d', enemy ? '#1e293b' : '#ef4444'],
-    duck:      [enemy ? '#0f172a' : '#854d0e', enemy ? '#1e293b' : '#fbbf24'],
-  };
-  const [c1, c2] = hullColors[enemy ? 'classic' : (skinId || 'classic')];
-  const hullGrad = ctx.createLinearGradient(-72,0,72,0);
-  hullGrad.addColorStop(0, c1); hullGrad.addColorStop(0.5, c2); hullGrad.addColorStop(1, c1);
-  ctx.fillStyle = hullGrad; ctx.fill();
-  ctx.strokeStyle = enemy ? '#94a3b8' : '#451a03'; ctx.lineWidth = 2; ctx.stroke();
-
-  // Deck
-  ctx.fillStyle = enemy ? '#334155' : '#9b6b3f';
-  ctx.fillRect(-52,-20,104,14);
-
-  // Mast
-  ctx.fillStyle = enemy ? '#0c0d10' : '#2a1608';
-  ctx.fillRect(-4,-92,8,75);
-
-  // Sail
-  const sailGrad = ctx.createLinearGradient(0,-88,45,-30);
-  sailGrad.addColorStop(0, enemy ? '#1e1f24' : '#f8f4e8');
-  sailGrad.addColorStop(1, enemy ? '#111318' : '#d4cdb5');
-  ctx.beginPath(); ctx.moveTo(2,-85); ctx.lineTo(45,-58); ctx.lineTo(2,-28); ctx.closePath();
-  ctx.fillStyle = sailGrad; ctx.fill();
-  ctx.strokeStyle = enemy ? '#475569' : '#c4b896'; ctx.lineWidth = 1; ctx.stroke();
-
-  // Skull flag
-  ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath(); ctx.moveTo(-2,-95); ctx.lineTo(22,-88); ctx.lineTo(-2,-82); ctx.closePath(); ctx.fill();
-  ctx.font = '8px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('☠', 10, -88);
-
-  // Cannon ports
-  for (let i = -26; i <= 26; i += 26) {
-    ctx.beginPath(); ctx.arc(i,-2,5.5,0,Math.PI*2);
-    ctx.fillStyle = enemy ? '#ff3333' : '#ffc533'; ctx.fill();
-    ctx.strokeStyle = enemy ? '#991b1b' : '#b45309'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.drawImage(
+      img, 
+      -renderW / 2, 
+      // Sube 3 píxeles (de +160 a +157)
+      -renderH + 157, 
+      renderW, 
+      renderH
+    );
+  } else {
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText("Cargando...", 0, 0);
   }
 
   ctx.restore();
@@ -288,12 +236,12 @@ function drawCannon(ctx, px, py, angle, skinId) {
   const bg = ctx.createLinearGradient(0,-7,0,7);
   bg.addColorStop(0, cc1); bg.addColorStop(1, cc2);
   ctx.fillStyle = bg;
-  ctx.beginPath(); ctx.roundRect(2,-6,38,12,3); ctx.fill();
-  ctx.strokeStyle='#111'; ctx.lineWidth=1; ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(2,-8,50,16,4); ctx.fill();
+  ctx.strokeStyle='#111'; ctx.lineWidth=1.5; ctx.stroke();
   ctx.fillStyle='#1f2937';
-  ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#4b5563';
-  ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,7,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -362,12 +310,16 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const gameRef = useRef(null);
   const rafRef = useRef(null);
 
+  const imgPlayerRef = useRef(new Image());
+  const imgEnemyRef = useRef(new Image());
+
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
   const cannonSkin = storeData?.cannonSkin || 'iron';
   const trailColor = storeData?.trailColor || 'orange';
 
-  const totalSkulls = levelDef.skullCount || 4;
+  const totalSkulls = 3; 
+
   const [hudState, setHudState] = useState({
     turno: 'jugador',
     skullsAliados: totalSkulls,
@@ -377,6 +329,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     level: levelDef.n, wind: levelDef.windX,
     act: levelDef.act,
   });
+
+  useEffect(() => {
+    imgPlayerRef.current.src = '/images/ship_player.png';
+    imgEnemyRef.current.src = '/images/ship_enemy.png';
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -391,27 +348,24 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     const engine = Engine.create({ gravity: { x: levelDef.windX * 0.3, y: levelDef.gravity } });
     const world = engine.world;
 
-    const jxBase = 130, cxBase = 1470, yBarco = MAPA_H - 70;
-    const pivJ = { x: jxBase + 35, y: yBarco - 12 };
-    const pivC = { x: cxBase - 35, y: yBarco - 12 };
+    const cxBase = 1470, yBarcoEnemigo = MAPA_H - 100;
+    const playerStartX = 250, playerStartY = MAPA_H - 100;
     const palette = SKY_PALETTES[levelDef.timeOfDay] || SKY_PALETTES.night;
 
-    // World bodies
     const agua = Bodies.rectangle(MAPA_W/2, MAPA_H-8, MAPA_W+300, 16, { isStatic:true, label:'agua' });
     const wallL = Bodies.rectangle(-60, MAPA_H/2, 120, MAPA_H*4, { isStatic:true, label:'wall' });
     const wallR = Bodies.rectangle(MAPA_W+60, MAPA_H/2, 120, MAPA_H*4, { isStatic:true, label:'wall' });
     Composite.add(world, [agua, wallL, wallR]);
 
-    // Mountains
+    // --- MONTAÑAS: Suben 3 píxeles (de MAPA_H-200 a MAPA_H-203) ---
     const mountainBodies = [];
     levelDef.mountains.forEach((m,i) => {
       const verts = [{x:-m.w/2,y:0},{x:m.w/2,y:0},{x:m.w/3,y:-m.h*0.6},{x:0,y:-m.h},{x:-m.w/3,y:-m.h*0.6}];
-      const body = Bodies.fromVertices(m.x, MAPA_H-140, verts, { isStatic:true, label:`mountain_${i}`, friction:0.8, restitution:0.1 });
+      const body = Bodies.fromVertices(m.x, MAPA_H-203, verts, { isStatic:true, label:`mountain_${i}`, friction:0.8, restitution:0.1 });
       body.mountainData = {...m, idx:i}; body.hp = m.hp; body.maxHp = m.maxHp;
       mountainBodies.push(body); Composite.add(world, body);
     });
 
-    // Portals
     const portalBodies = [];
     levelDef.portals.forEach((p,i) => {
       const pb = Bodies.rectangle(MAPA_W/2, p.y, 110, 28, { isStatic:true, isSensor:true, label:`portal_${i}` });
@@ -420,28 +374,36 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       portalBodies.push(pb); Composite.add(world, pb);
     });
 
-    // ---- SKULL MINIONS (replace dianas) ----
-    const skullCount = totalSkulls;
+    // ---- SKULL MINIONS (AJUSTADOS) ----
     const isBossLevel = !!levelDef.boss;
-    const skullsAliados = []; // { body, hp, maxHp, vx, vy, angle, dead }
+    const skullsAliados = [];
     const skullsEnemigos = [];
 
     function createSkullBody(x, y, label) {
-      const b = Bodies.circle(x, y, 14, { isStatic:false, isSensor:true, label, frictionAir:0.1, restitution:0.4 });
-      return b;
+      return Bodies.circle(x, y, 14, { isStatic:false, isSensor:true, label, frictionAir:0.1, restitution:0.4 });
     }
 
-    for (let i = 0; i < skullCount; i++) {
-      const spacing = Math.min(45, 240 / skullCount);
-      const ax = jxBase + 30 + (Math.random()-0.5)*10;
-      const ay = MAPA_H - 155 - i * spacing;
+    // Monos 3 píxeles hacia atrás (-X) y 6 píxeles hacia arriba (-Y)
+    const playerDeckPositions = [
+      { x: -53, y: -21 }, // Atrás
+      { x: 12,  y: 14 },  // Centro
+      { x: 77,  y: -1 }   // Adelante
+    ];
+
+    for (let i = 0; i < totalSkulls; i++) {
+      const pPos = playerDeckPositions[i % 3];
+      const ax = playerStartX + pPos.x + (Math.random()-0.5)*5;
+      const ay = playerStartY + pPos.y;
+      
       const bA = createSkullBody(ax, ay, 'skull_aliado');
       const hpA = 2 + Math.floor(levelDef.n / 25);
       skullsAliados.push({ body: bA, hp: hpA, maxHp: hpA, angle: 0, dead: false, vx: 0, vy: 0, baseX: ax, baseY: ay });
       Composite.add(world, bA);
 
-      let ex = cxBase - 30 + (Math.random()-0.5)*10;
-      let ey = MAPA_H - 155 - i * spacing;
+      // Como el barco enemigo está en espejo, se recorren hacia atrás (+X) para él automáticamente
+      let ex = cxBase - pPos.x + (Math.random()-0.5)*5;
+      let ey = yBarcoEnemigo + pPos.y;
+
       if (isBossLevel) {
         if (levelDef.boss.type === 'KRAKEN') { ex = cxBase-150+(i*65); ey = MAPA_H-180-(i%2===0?60:120); }
         else if (levelDef.boss.type === 'GHOST') { ex = cxBase-80+(i*30); ey = MAPA_H-200-i*40; }
@@ -454,7 +416,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       Composite.add(world, bE);
     }
 
-    // Game state
     const G = {
       camX:0, camY:0, camTargetX:0, camTargetY:0,
       camZoom:1, camTargetZoom:1, shake:0,
@@ -466,17 +427,23 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       camState:'idle', lingerTimer:0,
       projTrailPoints:[],
       lightningTimer:60,
-      lightning:false,
+      lightning: false,
       t: 0,
+      shipPos: { x: playerStartX, y: playerStartY },
+      cpuShipPos: { x: cxBase, y: yBarcoEnemigo },
+      keys: {},
+      isDraggingShip: false,
     };
     gameRef.current = G;
+
+    const pivJ = { x: G.shipPos.x + 130, y: G.shipPos.y - 40 };
+    const pivC = { x: G.cpuShipPos.x - 130, y: G.cpuShipPos.y - 40 };
 
     function addFX(x, y, type, extra={}) { G.fx.push({x,y,type,life:1,...extra}); }
 
     function countAliveJ() { return skullsAliados.filter(s=>!s.dead).length; }
     function countAliveE() { return skullsEnemigos.filter(s=>!s.dead).length; }
 
-    // Shoot player
     function dispararJugador() {
       if (G.turno!=='jugador'||G.balaEnElAire||G.gameOver) return;
       const b = Bodies.circle(pivJ.x, pivJ.y, 11, { label:'proyectil_jugador', density:0.05, restitution:0.35, frictionAir:0.005 });
@@ -489,7 +456,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       setHudState(s=>({...s,turno:'cpu'}));
     }
 
-    // Shoot CPU
     function dispararCompu() {
       if (countAliveJ()<=0||countAliveE()<=0||G.gameOver) return;
       const alive = skullsAliados.filter(s=>!s.dead);
@@ -514,14 +480,12 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       addFX(pivC.x,pivC.y,'flash'); G.camState='following'; G.projTrailPoints=[];
     }
 
-    // Hit a skull minion — ragdoll reaction
     function hitSkull(skullObj, bala, force=1) {
       if (skullObj.dead) return;
       skullObj.hp--;
       audio.playSFX('skull_hit');
       addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_impact', { color: bala.bando==='jugador'?'#f59e0b':'#ef4444' });
 
-      // Ragdoll velocity
       const vx = bala.velocity?.x || 0;
       const vy = bala.velocity?.y || 0;
       const mag = Math.sqrt(vx*vx+vy*vy)||1;
@@ -532,20 +496,17 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         skullObj.dead = true;
         audio.playSFX('explode');
         addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_death');
-        // Big ragdoll launch
         Body.setVelocity(skullObj.body, { x: (vx/mag)*20, y: -15 });
         Body.setAngularVelocity(skullObj.body, (Math.random()-0.5)*1.2);
       }
     }
 
-    // Collisions
     Events.on(engine, 'collisionStart', ev => {
       ev.pairs.forEach(p => {
         const A=p.bodyA, B=p.bodyB;
         const bala=(A.label.includes('proyectil')||A.label==='clon')?A:((B.label.includes('proyectil')||B.label==='clon')?B:null);
         if (!bala) return;
 
-        // Portals
         if (A.label.startsWith('portal_')||B.label.startsWith('portal_')) {
           const portal=A.label.startsWith('portal_')?A:B;
           if(!bala.yaMultiplicado){
@@ -563,7 +524,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           return;
         }
 
-        // Mountains
         if (A.label.startsWith('mountain_')||B.label.startsWith('mountain_')) {
           const mtn=A.label.startsWith('mountain_')?A:B;
           mtn.hp=(mtn.hp||1)-1;
@@ -574,14 +534,13 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           return;
         }
 
-        // Water
         if (A.label==='agua'||B.label==='agua') {
           audio.playSFX('splash');
-          addFX(bala.position.x,MAPA_H-145,'splash');
+          // CAMBIO: Splash del agua sube 3 píxeles (de MAPA_H-180 a MAPA_H-183)
+          addFX(bala.position.x,MAPA_H-183,'splash');
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
         }
 
-        // Skull Minions
         if (A.label==='skull_aliado'||B.label==='skull_aliado') {
           const skullBody=A.label==='skull_aliado'?A:B;
           if(bala.bando==='compu') {
@@ -625,7 +584,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
     }
 
-    // Input
     function getWorldPos(e) {
       const rect=canvas.getBoundingClientRect();
       let cx,cy;
@@ -635,23 +593,86 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       const screenX=(cx-rect.left)*scaleX, screenY=(cy-rect.top)*scaleY;
       return {x:screenX/G.camZoom+G.camX, y:screenY/G.camZoom+G.camY};
     }
-    function onDown(e){audio.init();if(G.turno!=='jugador'||G.balaEnElAire||G.gameOver)return;G.mouseDown=true;G.miraPos=getWorldPos(e);G.camState='aiming';}
-    function onMove(e){if(!G.mouseDown)return;G.miraPos=getWorldPos(e);const ang=Math.atan2(G.miraPos.y-pivJ.y,G.miraPos.x-pivJ.x);G.angJ=Math.max(-Math.PI/2,Math.min(0,ang));}
-    function onUp(){if(G.mouseDown){G.mouseDown=false;dispararJugador();}}
+
+    function onDown(e) {
+      audio.init();
+      if(G.turno!=='jugador'||G.balaEnElAire||G.gameOver) return;
+      const pos = getWorldPos(e);
+      
+      const shipHitbox = {
+        x: G.shipPos.x - 180,
+        y: G.shipPos.y - 120, 
+        w: 360,
+        h: 260
+      };
+
+      if (pos.x >= shipHitbox.x && pos.x <= shipHitbox.x + shipHitbox.w &&
+          pos.y >= shipHitbox.y && pos.y <= shipHitbox.y + shipHitbox.h) {
+        G.isDraggingShip = true;
+      } else {
+        G.mouseDown = true;
+        G.miraPos = pos;
+        G.camState = 'aiming';
+      }
+    }
+
+    function onMove(e) {
+      const pos = getWorldPos(e);
+
+      if (G.isDraggingShip) {
+        let newX = Math.max(220, Math.min(pos.x, MAPA_W / 2 - 150));
+        let newY = Math.max(MAPA_H - 260, Math.min(pos.y, MAPA_H - 60));
+        
+        let moveX = newX - G.shipPos.x;
+        let moveY = newY - G.shipPos.y;
+        
+        G.shipPos.x = newX;
+        G.shipPos.y = newY;
+        
+        skullsAliados.forEach(skull => {
+          skull.baseX += moveX;
+          skull.baseY += moveY;
+        });
+        
+        pivJ.x = G.shipPos.x + 130;
+        pivJ.y = G.shipPos.y - 40;
+        return;
+      }
+
+      if(!G.mouseDown) return;
+      G.miraPos = pos;
+      const ang = Math.atan2(G.miraPos.y-pivJ.y, G.miraPos.x-pivJ.x);
+      G.angJ = Math.max(-Math.PI/2, Math.min(0, ang));
+    }
+
+    function onUp() {
+      if (G.isDraggingShip) {
+        G.isDraggingShip = false;
+        return;
+      }
+      if(G.mouseDown){
+        G.mouseDown = false;
+        dispararJugador();
+      }
+    }
+
+    const handleKeyDown = (e) => { G.keys[e.key] = true; };
+    const handleKeyUp = (e) => { G.keys[e.key] = false; };
+
     canvas.addEventListener('mousedown',onDown);
     canvas.addEventListener('mousemove',onMove);
     canvas.addEventListener('mouseup',onUp);
     canvas.addEventListener('touchstart',e=>{e.preventDefault();onDown(e);},{passive:false});
     canvas.addEventListener('touchmove',e=>{e.preventDefault();onMove(e);},{passive:false});
     canvas.addEventListener('touchend',onUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
-    // ---- DRAW FUNCTIONS ----
     function drawSky(t2) {
       const pal=palette;
       const grad=ctx.createLinearGradient(0,0,0,MAPA_H-140);
       grad.addColorStop(0,pal.top); grad.addColorStop(0.5,pal.mid); grad.addColorStop(1,pal.bot);
       ctx.fillStyle=grad; ctx.fillRect(0,0,MAPA_W,MAPA_H-140);
-      // Lightning
       if(levelDef.timeOfDay==='storm'||levelDef.boss){
         G.lightningTimer--;
         if(G.lightningTimer<=0){G.lightning=true;G.lightningTimer=100+Math.random()*160;setTimeout(()=>{G.lightning=false;},80);}
@@ -664,7 +685,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           ctx.stroke(); ctx.shadowBlur=0;
         }
       }
-      // Stars
       if(pal.starAlpha>0){
         for(let i=0;i<90;i++){
           const sx=(i*137.5+50)%MAPA_W, sy=(i*97.3+20)%(MAPA_H-220);
@@ -674,7 +694,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         }
         ctx.globalAlpha=1;
       }
-      // Sun/Moon
       if(levelDef.timeOfDay==='day'&&!levelDef.boss){
         const g2=ctx.createRadialGradient(MAPA_W*0.7,70,0,MAPA_W*0.7,70,80);
         g2.addColorStop(0,'rgba(255,255,180,1)'); g2.addColorStop(0.4,'rgba(255,220,80,0.7)'); g2.addColorStop(1,'rgba(255,180,0,0)');
@@ -687,12 +706,14 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function drawOcean(t2) {
-      const grad=ctx.createLinearGradient(0,MAPA_H-140,0,MAPA_H);
+      // --- CAMBIO: Mar sube 3 píxeles (MAPA_H-200 a MAPA_H-203) ---
+      const grad=ctx.createLinearGradient(0,MAPA_H-203,0,MAPA_H);
       grad.addColorStop(0,palette.oceanTop); grad.addColorStop(0.5,'#0b5ab5'); grad.addColorStop(1,'#072447');
-      ctx.fillStyle=grad; ctx.fillRect(0,MAPA_H-140,MAPA_W,140);
+      ctx.fillStyle=grad; ctx.fillRect(0,MAPA_H-203,MAPA_W,203);
       const waveAlpha=(levelDef.timeOfDay==='storm'||levelDef.boss)?0.35:0.15;
       ctx.strokeStyle=`rgba(255,255,255,${waveAlpha})`; ctx.lineWidth=1;
-      for(let y=MAPA_H-128;y<MAPA_H;y+=18){
+      // Olas también suben 3 píxeles
+      for(let y=MAPA_H-191;y<MAPA_H;y+=18){
         ctx.beginPath();
         for(let x=0;x<MAPA_W;x+=6){const wAmp=(levelDef.timeOfDay==='storm'||levelDef.boss)?9:4;const w=Math.sin((x+t2*0.15)*0.022+y*0.07)*wAmp;ctx.lineTo(x,y+w);}
         ctx.stroke();
@@ -713,7 +734,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           ctx.strokeStyle='rgba(255,100,0,0.6)'; ctx.lineWidth=1.5;
           const cracks=Math.floor((1-hpRatio)*5)+1;
           for(let c=0;c<cracks;c++){ctx.beginPath();ctx.moveTo((c-cracks/2)*18,-md.h*0.3);ctx.lineTo((c-cracks/2)*18+10,-md.h*0.6);ctx.stroke();}
-          // HP bar
           const bw=40;
           ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(-bw/2,-md.h-14,bw,6);
           ctx.fillStyle=hpRatio>0.5?'#22c55e':'#ef4444'; ctx.fillRect(-bw/2,-md.h-14,bw*hpRatio,6);
@@ -740,20 +760,20 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function drawSkullMinions(t2) {
-      // Alive skulls bob on ship / position
       [...skullsAliados, ...skullsEnemigos].forEach(skull => {
         const pos = skull.body.position;
-        // Keep alive skulls near their base with gentle oscillation
+        
         if (!skull.dead) {
           const bobX = Math.sin(t2 * 0.003 + skull.baseX * 0.01) * 2;
           const bobY = Math.sin(t2 * 0.003 + skull.baseY * 0.01) * 4;
           Body.setPosition(skull.body, { x: skull.baseX + bobX, y: skull.baseY + bobY });
           Body.setVelocity(skull.body, { x: 0, y: 0 });
         } else {
-          // Dead skulls: clamp so they don't fall off screen entirely
-          if (pos.y > MAPA_H + 80 || pos.x < -200 || pos.x > MAPA_W + 200) {
-            Body.setPosition(skull.body, { x: Math.max(50, Math.min(MAPA_W-50, pos.x)), y: MAPA_H - 80 });
-            Body.setVelocity(skull.body, { x: 0, y: 0 });
+          if (pos.y > MAPA_H + 100 || pos.x < -200 || pos.x > MAPA_W + 200) {
+            if (Composite.allBodies(world).includes(skull.body)) {
+              Composite.remove(world, skull.body);
+            }
+            return; 
           }
         }
 
@@ -770,7 +790,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       Composite.allBodies(world).forEach(b => {
         if(b.label!=='proyectil_jugador'&&b.label!=='proyectil_compu'&&b.label!=='clon')return;
         ctx.save(); ctx.translate(b.position.x,b.position.y);
-        const isClone=b.label==='clon';
         let col;
         if (trailColor === 'rainbow') {
           col = `hsl(${(t2*2)%360},100%,60%)`;
@@ -789,7 +808,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function drawTrajectoryGuide() {
-      if(!G.mouseDown||G.balaEnElAire)return;
+      if(!G.mouseDown||G.balaEnElAire||G.isDraggingShip)return;
       const fxv=(G.miraPos.x-pivJ.x)*0.062, fyv=(G.miraPos.y-pivJ.y)*0.062;
       for(let i=1;i<28;i++){
         const tt=i*2.5;
@@ -820,7 +839,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           const r=30*(1-f.life);
           ctx.strokeStyle=col; ctx.lineWidth=2;
           ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.stroke();
-          // Stars flying out
           for(let i=0;i<6;i++){
             const a=(i/6)*Math.PI*2, d=r*0.8;
             ctx.fillStyle=col; ctx.font='12px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -828,7 +846,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           }
         }
         if(f.type==='skull_death'){
-          // Big boom + skull pieces
           const r=55*(1-f.life);
           ctx.strokeStyle='rgba(255,180,50,0.9)'; ctx.lineWidth=3;
           ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.stroke();
@@ -837,7 +854,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
             ctx.font=`${12*f.life}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
             ctx.fillText('💀',f.x+Math.cos(a)*d,f.y+Math.sin(a)*d);
           }
-          // smoke
           ctx.fillStyle=`rgba(80,80,80,${f.life*0.5})`;
           ctx.beginPath(); ctx.arc(f.x,f.y-r*0.3,r*0.6,0,Math.PI*2); ctx.fill();
         }
@@ -891,7 +907,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       ctx.restore();
     }
 
-    // Camera
     function updateCamera() {
       const bodies=Composite.allBodies(world);
       const projs=bodies.filter(b=>b.label==='proyectil_jugador'||b.label==='proyectil_compu'||b.label==='clon');
@@ -930,29 +945,75 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function physicsUpdate(t2) {
+      if (G.turno === 'jugador' && !G.gameOver && !G.isDraggingShip) {
+        let dx = 0, dy = 0;
+        const speed = 7;
+        if (G.keys['ArrowLeft'] || G.keys['a'] || G.keys['A']) dx -= speed;
+        if (G.keys['ArrowRight'] || G.keys['d'] || G.keys['D']) dx += speed;
+        if (G.keys['ArrowUp'] || G.keys['w'] || G.keys['W']) dy -= speed;
+        if (G.keys['ArrowDown'] || G.keys['s'] || G.keys['S']) dy += speed;
+
+        if (dx !== 0 || dy !== 0) {
+          let newX = Math.max(220, Math.min(G.shipPos.x + dx, MAPA_W / 2 - 150));
+          let newY = Math.max(MAPA_H - 260, Math.min(G.shipPos.y + dy, MAPA_H - 60));
+          
+          let moveX = newX - G.shipPos.x;
+          let moveY = newY - G.shipPos.y;
+          
+          G.shipPos.x = newX;
+          G.shipPos.y = newY;
+          
+          skullsAliados.forEach(skull => {
+            skull.baseX += moveX;
+            skull.baseY += moveY;
+          });
+          
+          pivJ.x = G.shipPos.x + 130;
+          pivJ.y = G.shipPos.y - 40;
+        }
+      }
+
+      if (!G.gameOver) {
+        let targetX = (MAPA_W - 250) + Math.sin(t2 * 0.0004) * 250; 
+        let targetY = (MAPA_H - 180) + Math.cos(t2 * 0.0006) * 80;   
+
+        targetX = Math.max(MAPA_W / 2 + 150, Math.min(targetX, MAPA_W - 220));
+        targetY = Math.max(MAPA_H - 260, Math.min(targetY, MAPA_H - 60));
+
+        let moveX = targetX - G.cpuShipPos.x;
+        let moveY = targetY - G.cpuShipPos.y;
+
+        G.cpuShipPos.x += moveX * 0.02;
+        G.cpuShipPos.y += moveY * 0.02;
+
+        skullsEnemigos.forEach(skull => {
+          skull.baseX += moveX * 0.02;
+          skull.baseY += moveY * 0.02;
+        });
+
+        pivC.x = G.cpuShipPos.x - 130;
+        pivC.y = G.cpuShipPos.y - 40;
+      }
+
       G.cuerposPorBorrar.forEach(c=>{if(Composite.allBodies(world).includes(c))Composite.remove(world,c);});
       G.cuerposPorBorrar=[];
-      // Move portals
       portalBodies.forEach((pb,idx)=>{
         if(!Composite.allBodies(world).includes(pb))return;
         const pd=pb.portalData, freq=Math.abs(pd.speed)*0.0007;
         const angle2=t2*freq+(idx*3.5);
         Body.setPosition(pb,{x:MAPA_W/2+pd.range*Math.sin(angle2),y:pd.y+75*Math.sin(2*angle2)});
       });
-      // CPU angle wobble
       if(G.turno==='cpu') G.angC=Math.PI+Math.PI/5+Math.sin(t2*0.003)*0.08;
-      // CPU auto-fire
       if(G.turno==='cpu'&&!G.balaEnElAire&&G.camState==='returning'&&!G.gameOver){
         if(G.tiempoDisparoCpu>0&&performance.now()>G.tiempoDisparoCpu){
           dispararCompu(); G.turno='jugador'; G.tiempoDisparoCpu=0;
           setHudState(s=>({...s,turno:'jugador'}));
         }
       }
-      // Cleanup out-of-bounds projectiles
       Composite.allBodies(world).forEach(c=>{
         if(c.label==='proyectil_jugador'||c.label==='proyectil_compu'||c.label==='clon'){
           if(c.position.y>MAPA_H+60||c.position.x<-150||c.position.x>MAPA_W+150||c.position.y<-1500){
-            if(!G.cuerposPorBorrar.includes(c)){G.cuerposPorBorrar.push(c);addFX(c.position.x,MAPA_H-150,'splash');}
+            if(!G.cuerposPorBorrar.includes(c)){G.cuerposPorBorrar.push(c);addFX(c.position.x,MAPA_H-183,'splash');}
           }
         }
       });
@@ -961,7 +1022,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       G.projTrailPoints=G.projTrailPoints.filter(p=>p.age>0);
     }
 
-    // ---- MAIN LOOP ----
     let lastTime=0;
     function gameLoop(timestamp) {
       const dt=Math.min(timestamp-lastTime,33);
@@ -981,27 +1041,25 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       drawOcean(timestamp);
       drawMountains();
 
-      // Trail
       if(G.projTrailPoints.length>1){
         ctx.strokeStyle='rgba(255,200,100,0.25)'; ctx.lineWidth=2; ctx.beginPath();
         G.projTrailPoints.forEach((pt,i)=>{ctx.globalAlpha=pt.age*0.3;if(i===0)ctx.moveTo(pt.x,pt.y);else ctx.lineTo(pt.x,pt.y);});
         ctx.stroke(); ctx.globalAlpha=1;
       }
 
-      // Ships
-      drawShip(ctx, jxBase, yBarco, false, shipSkin, timestamp);
+      drawShip(ctx, G.shipPos.x, G.shipPos.y, false, shipSkin, timestamp, imgPlayerRef.current, imgEnemyRef.current);
+      
       if(levelDef.boss){
-        drawBoss(ctx, cxBase, yBarco, levelDef.boss.type, timestamp);
+        drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp);
         ctx.save(); ctx.font='bold 22px Georgia,serif'; ctx.fillStyle='#ef4444';
         ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor='#000';
-        ctx.fillText(levelDef.boss.name, cxBase, yBarco-185); ctx.restore();
+        ctx.fillText(levelDef.boss.name, G.cpuShipPos.x, G.cpuShipPos.y-185); ctx.restore();
       } else {
-        drawShip(ctx, cxBase, yBarco, true, 'classic', timestamp);
+        drawShip(ctx, G.cpuShipPos.x, G.cpuShipPos.y, true, 'classic', timestamp, imgPlayerRef.current, imgEnemyRef.current);
       }
 
-      // Cannons
-      const bob1=Math.sin(timestamp*0.003+jxBase*0.01)*4;
-      const bob2=Math.sin(timestamp*0.003+cxBase*0.01)*4;
+      const bob1=Math.sin(timestamp*0.003+G.shipPos.x*0.01)*4;
+      const bob2=Math.sin(timestamp*0.003+G.cpuShipPos.x*0.01)*4;
       drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
       if(!levelDef.boss||levelDef.boss.type!=='FORTRESS')
         drawCannon(ctx, pivC.x, pivC.y+bob2, G.angC, 'iron');
@@ -1027,6 +1085,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       canvas.removeEventListener('mousedown',onDown);
       canvas.removeEventListener('mousemove',onMove);
       canvas.removeEventListener('mouseup',onUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [levelDef.n]);
 
