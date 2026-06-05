@@ -1,14 +1,5 @@
 [gd_scene format=3 uid="uid://7qbu473064cn"]
 
-[ext_resource type="Texture2D" uid="uid://dxkboxu6ivqg2" path="res://skull-raiders/public/images/ship_player.png" id="1_r0811"]
-[ext_resource type="Texture2D" uid="uid://cg8oducsf0xcp" path="res://skull-raiders/public/images/ship_enemy.png" id="2_hcujj"]
-
 [node name="Node2D" type="Node2D" unique_id=473182422]
 
-[node name="ShipPlayer" type="Sprite2D" parent="." unique_id=712622366]
-position = Vector2(89, 305)
-texture = ExtResource("1_r0811")
-
-[node name="ShipEnemy" type="Sprite2D" parent="." unique_id=652675663]
-position = Vector2(298, 386)
-texture = ExtResource("2_hcujj")
+[node name="CharacterBody2D" type="CharacterBody2D" parent="." unique_id=1870114039]
