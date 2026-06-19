@@ -1,12 +1,9 @@
 {
   "$GMObject":"",
-  "%Name":"obj_barco_jugador",
-  "eventList":[
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":0,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-    {"$GMEvent":"v1","%Name":"","collisionObjectId":null,"eventNum":0,"eventType":3,"isDnD":false,"name":"","resourceType":"GMEvent","resourceVersion":"2.0",},
-  ],
+  "%Name":"obj_canion",
+  "eventList":[],
   "managed":true,
-  "name":"obj_barco_jugador",
+  "name":"obj_canion",
   "overriddenProperties":[],
   "parent":{
     "name":"Objetos",
@@ -31,8 +28,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"spr_barco_jugador",
-    "path":"sprites/spr_barco_jugador/spr_barco_jugador.yy",
+    "name":"spr_canion",
+    "path":"sprites/spr_canion/spr_canion.yy",
   },
   "spriteMaskId":null,
   "visible":true,
