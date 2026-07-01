@@ -15,10 +15,11 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-:root {
-  --skull-gold: #f59e0b;
-  --skull-red: #ef4444;
-  --skull-ocean: #0b5ab5;
+#root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes float {

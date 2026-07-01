@@ -156,7 +156,7 @@ export default function MainMenu({ onPlay, onShop, onSettings, onDailyReward, co
   }, []);
 
   return (
-    <div className="relative w-full max-w-[900px] mx-auto select-none" style={{ fontFamily: 'Georgia, serif' }}>
+    <div className="relative w-full max-w-[900px] mx-auto select-none min-h-[480px]" style={{ fontFamily: 'Georgia, serif' }}>
       <canvas ref={canvasRef} className="w-full rounded-2xl" style={{ display: 'block' }} />
       <div className="absolute inset-0 flex flex-col items-center justify-between pointer-events-none" style={{ padding: '16px 20px' }}>
         <div className="w-full flex justify-between items-center pointer-events-auto">
