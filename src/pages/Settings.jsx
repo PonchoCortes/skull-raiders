@@ -32,6 +32,13 @@ export default function Settings({ storeData, setStoreData, onBack }) {
     window.location.reload();
   }
 
+  function toggleDebug() {
+    const next = { ...storeData, debugMode: !storeData.debugMode };
+    setStoreData(next);
+    saveStore(next);
+    audio.playSFX(next.debugMode ? 'levelup' : 'coin');
+  }
+
   return (
     <div className="w-full max-w-[900px] mx-auto flex flex-col gap-4 px-4" style={{ fontFamily: 'Georgia, serif' }}>
       {/* Header */}
@@ -75,6 +82,26 @@ export default function Settings({ storeData, setStoreData, onBack }) {
           <StatBox label="Monedas totales" value={(storeData.coins || 0).toLocaleString()} icon="🪙" />
           <StatBox label="Gemas" value={storeData.gems || 0} icon="💎" />
           <StatBox label="Racha diaria" value={`${storeData.dailyStreak || 0} días`} icon="🔥" />
+        </div>
+      </Section>
+
+      {/* Modo prueba */}
+      <Section title="🐛 MODO PRUEBA">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="font-bold text-sm" style={{ color: storeData.debugMode ? '#4ade80' : '#f8fafc' }}>
+              100 niveles desbloqueados + monedas infinitas
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#64748b' }}>
+              Útil para probar el juego. Apágalo antes de publicar para que tus jugadores progresen normalmente.
+            </div>
+          </div>
+          <button onClick={toggleDebug}
+            className="w-14 h-8 rounded-full relative transition-all flex-shrink-0"
+            style={{ background: storeData.debugMode ? '#16a34a' : 'rgba(51,65,85,0.8)' }}>
+            <span className="absolute top-1 w-6 h-6 rounded-full bg-white transition-all"
+              style={{ left: storeData.debugMode ? '26px' : '4px' }} />
+          </button>
         </div>
       </Section>
 

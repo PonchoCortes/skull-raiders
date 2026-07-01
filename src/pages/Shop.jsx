@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIP_SKINS, CANNON_SKINS, TRAIL_COLORS, SKULL_SKINS, saveStore } from '../lib/store';
+import { SHIP_SKINS, CANNON_SKINS, TRAIL_COLORS, SKULL_SKINS, saveStore, getDisplayCoins } from '../lib/store';
 import { audio } from '../lib/audio';
 
 const TABS = [
@@ -12,6 +12,8 @@ const TABS = [
 export default function Shop({ storeData, setStoreData, onBack }) {
   const [tab, setTab] = useState('ships');
   const [msg, setMsg] = useState(null);
+  const debugMode = !!storeData.debugMode;
+  const displayCoins = getDisplayCoins(storeData);
 
   function flash(text, ok) {
     setMsg({ text, ok });
@@ -29,10 +31,12 @@ export default function Shop({ storeData, setStoreData, onBack }) {
       flash('¡Equipado! 🏴‍☠️', true);
       return;
     }
-    if (price === 0 || storeData.coins >= price) {
+    if (price === 0 || debugMode || storeData.coins >= price) {
       const next = {
         ...storeData,
-        coins: storeData.coins - price,
+        // En modo prueba no se descuentan monedas reales, asi el progreso
+        // real del jugador no se ve afectado al estar probando el juego.
+        coins: debugMode ? storeData.coins : storeData.coins - price,
         [field]: itemId,
         [`owned_${field}`]: [...owned, itemId],
       };
@@ -75,10 +79,16 @@ export default function Shop({ storeData, setStoreData, onBack }) {
           🛒 TIENDA PIRATA
         </h2>
         <div className="ml-auto flex gap-2">
-          <CurrencyBadge icon="🪙" value={storeData.coins} color="#f59e0b" />
+          <CurrencyBadge icon="🪙" value={displayCoins} color="#f59e0b" infinite={debugMode} />
           <CurrencyBadge icon="💎" value={storeData.gems} color="#818cf8" />
         </div>
       </div>
+      {debugMode && (
+        <div className="mx-2 -mt-1 text-[11px] font-bold text-center py-1.5 rounded-lg"
+          style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.4)' }}>
+          🐛 Modo prueba activo — todo se puede comprar sin gastar monedas reales
+        </div>
+      )}
 
       {/* Toast */}
       {msg && (
@@ -174,12 +184,12 @@ export default function Shop({ storeData, setStoreData, onBack }) {
   );
 }
 
-function CurrencyBadge({ icon, value, color }) {
+function CurrencyBadge({ icon, value, color, infinite }) {
   return (
     <div className="flex items-center gap-1 px-3 py-1 rounded-full"
       style={{ background: 'rgba(15,23,42,0.85)', border: `1px solid ${color}40` }}>
       <span className="text-sm">{icon}</span>
-      <span className="font-bold text-sm" style={{ color }}>{value?.toLocaleString()}</span>
+      <span className="font-bold text-sm" style={{ color }}>{infinite ? '∞' : value?.toLocaleString()}</span>
     </div>
   );
 }

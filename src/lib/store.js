@@ -16,7 +16,25 @@ export const DEFAULT_STORE = {
   musicVolume: 1,
   dailyStreak: 0,
   lastDaily: null,
+  // Modo prueba: desbloquea los 100 niveles y da monedas "infinitas" para
+  // poder revisar todo el juego sin tener que jugarlo de principio a fin.
+  // Se puede apagar en Ajustes antes de publicar la versión final.
+  debugMode: true,
 };
+
+export const DEBUG_COINS = 999999;
+export const DEBUG_UNLOCKED_LEVEL = 100;
+
+// Devuelve las monedas "visibles" (infinitas si el modo prueba está activo)
+export function getDisplayCoins(storeData) {
+  return storeData?.debugMode ? DEBUG_COINS : (storeData?.coins || 0);
+}
+
+// Devuelve hasta qué nivel puede jugar el usuario (100 si el modo prueba está activo)
+export function getUnlockedLevel(storeData, progress) {
+  if (storeData?.debugMode) return DEBUG_UNLOCKED_LEVEL;
+  return progress?.unlockedLevel || 1;
+}
 
 export function loadStore() {
   try {

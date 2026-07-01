@@ -3,9 +3,10 @@ import MainMenu from './MainMenu';
 import Shop from './Shop';
 import Settings from './Settings';
 import DailyRewards from './DailyRewards';
+import LevelSelection from './LevelSelection';
 import PirateGame from '../components/game/PirateGame';
 import { getLevel } from '../lib/levels';
-import { loadStore, saveStore, loadProgress, saveProgress } from '../lib/store';
+import { loadStore, saveStore, loadProgress, saveProgress, getUnlockedLevel } from '../lib/store';
 import { audio } from '../lib/audio';
 
 export default function Game() {
@@ -14,38 +15,44 @@ export default function Game() {
   const [progress, setProgress] = useState(loadProgress);
   const [currentLevel, setCurrentLevel] = useState(null);
   const [levelResult, setLevelResult] = useState(null); // { won, stars }
-  const [coins, setCoins] = useState(0); // coins earned in level
 
-  const currentLevelNum = progress.unlockedLevel || 1;
+  // Nivel hasta el que se puede jugar (100 si el modo prueba esta activo)
+  const unlockedLevel = getUnlockedLevel(storeData, progress);
 
-  function handlePlay() {
+  function startLevel(n) {
     audio.init();
-    const lvl = getLevel(currentLevelNum);
+    const lvl = getLevel(n);
     setCurrentLevel(lvl);
     setLevelResult(null);
-    setCoins(0);
     setScreen('game');
   }
 
+  function handlePlay() {
+    // Continua en el siguiente nivel disponible del progreso real
+    startLevel(progress.unlockedLevel || 1);
+  }
+
+  function handleSelectLevel(n) {
+    startLevel(n);
+  }
+
   function handleLevelComplete(stars) {
+    const n = currentLevel.n;
     const coinsEarned = 20 + stars * 15 + (currentLevel?.boss ? 80 : 0);
     const vipBonus = storeData.vipPass ? Math.floor(coinsEarned * 0.2) : 0;
     const total = coinsEarned + vipBonus;
 
-    setCoins(total);
-
-    // Update progress
-    const newLevelNum = currentLevelNum + 1;
-    const prevStars = progress.stars?.[currentLevelNum] || 0;
+    // Progreso real (independiente del modo prueba, asi no se pierde nada al apagarlo)
+    const newLevelNum = n + 1;
+    const prevStars = progress.stars?.[n] || 0;
     const newProgress = {
       ...progress,
       unlockedLevel: Math.max(progress.unlockedLevel || 1, newLevelNum),
-      stars: { ...(progress.stars || {}), [currentLevelNum]: Math.max(prevStars, stars) },
+      stars: { ...(progress.stars || {}), [n]: Math.max(prevStars, stars) },
     };
     setProgress(newProgress);
     saveProgress(newProgress);
 
-    // Update missions
     const missions = storeData.missions || {};
     const updatedMissions = {
       ...missions,
@@ -70,21 +77,17 @@ export default function Game() {
   }
 
   function handleRetry() {
-    const lvl = getLevel(currentLevelNum);
+    const lvl = getLevel(currentLevel.n);
     setCurrentLevel(lvl);
     setLevelResult(null);
-    setCoins(0);
   }
 
   function handleNextLevel() {
-    const nextNum = progress.unlockedLevel || 1;
-    const lvl = getLevel(nextNum);
-    setCurrentLevel(lvl);
-    setLevelResult(null);
-    setCoins(0);
+    const nextNum = Math.min(currentLevel.n + 1, unlockedLevel);
+    startLevel(nextNum);
   }
 
-  // Wrap setStoreData to also persist
+  // Envuelve setStoreData para persistir tambien
   const updateStore = useCallback((next) => {
     setStoreData(next);
     saveStore(next);
@@ -109,9 +112,18 @@ export default function Game() {
           onShop={() => setScreen('shop')}
           onSettings={() => setScreen('settings')}
           onDailyReward={() => setScreen('daily')}
-          coins={storeData.coins || 0}
-          gems={storeData.gems || 0}
-          level={currentLevelNum}
+          onLevels={() => setScreen('levels')}
+          storeData={storeData}
+          level={progress.unlockedLevel || 1}
+        />
+      )}
+
+      {screen === 'levels' && (
+        <LevelSelection
+          storeData={storeData}
+          progress={progress}
+          onSelectLevel={handleSelectLevel}
+          onBack={() => setScreen('menu')}
         />
       )}
 
@@ -161,6 +173,7 @@ export default function Game() {
         <LevelResultScreen
           result={levelResult}
           level={currentLevel}
+          canGoNext={currentLevel.n < 100}
           onRetry={handleRetry}
           onMenu={() => { audio.stopMusic(); setScreen('menu'); }}
           onNext={levelResult.won ? handleNextLevel : null}
@@ -171,7 +184,7 @@ export default function Game() {
 }
 
 // ---- LEVEL RESULT SCREEN ----
-function LevelResultScreen({ result, level, onRetry, onMenu, onNext }) {
+function LevelResultScreen({ result, level, onRetry, onMenu, onNext, canGoNext }) {
   const { won, stars, coinsEarned, vipBonus, newLevel } = result;
 
   useEffect(() => {
@@ -234,7 +247,7 @@ function LevelResultScreen({ result, level, onRetry, onMenu, onNext }) {
 
       {/* Action buttons */}
       <div className="w-full flex flex-col gap-3">
-        {won && onNext && (
+        {won && onNext && canGoNext && (
           <button onClick={onNext}
             className="w-full py-4 rounded-2xl font-black text-xl transition-all hover:scale-105 active:scale-95"
             style={{
