@@ -2,113 +2,134 @@ import React, { useEffect, useRef } from 'react';
 import { audio } from '../lib/audio';
 import { getDisplayCoins } from '../lib/store';
 
-function drawMenuSkull(ctx, x, y, t, skinId, action) {
+// ---- SPRITE DE CALAVERA (animación por frames, estilo spritesheet) ----
+// En vez de mover brazos/piernas con curvas continuas (se ve como gelatina),
+// usamos posiciones fijas por "frame" que se van turnando, igual que un
+// spritesheet clásico de 2D. Se ve más marcado y "de videojuego".
+
+const WALK_FRAMES = [
+  { legL: -0.35, legR: 0.35, armL: 0.35, armR: -0.35, bob: 0 },
+  { legL: -0.12, legR: 0.12, armL: 0.12, armR: -0.12, bob: -3 },
+  { legL: 0.35, legR: -0.35, armL: -0.35, armR: 0.35, bob: 0 },
+  { legL: 0.12, legR: -0.12, armL: -0.12, armR: 0.12, bob: -3 },
+];
+
+const DANCE_FRAMES = [
+  { legL: -0.2, legR: 0.1, armL: -1.1, armR: 0.3, bob: -2 },
+  { legL: 0.05, legR: -0.05, armL: -0.4, armR: 1.0, bob: -6 },
+  { legL: 0.2, legR: -0.1, armL: 0.3, armR: -1.1, bob: -2 },
+  { legL: -0.05, legR: 0.05, armL: 1.0, armR: -0.4, bob: -6 },
+];
+
+const FIGHT_FRAMES = [
+  { legL: -0.15, legR: 0.15, armL: -1.4, armR: 0.5, bob: 0 },
+  { legL: -0.05, legR: 0.05, armL: -0.3, armR: -0.9, bob: -1 },
+  { legL: -0.15, legR: 0.15, armL: -1.4, armR: 0.5, bob: 0 },
+  { legL: -0.05, legR: 0.05, armL: 1.3, armR: -0.4, bob: -1 },
+];
+
+const CELEBRATE_FRAMES = [
+  { legL: -0.1, legR: 0.25, armL: -1.3, armR: 1.3, bob: -8 },
+  { legL: 0.1, legR: -0.1, armL: -1.5, armR: 1.5, bob: 0 },
+  { legL: 0.25, legR: -0.1, armL: -1.3, armR: 1.3, bob: -8 },
+  { legL: -0.1, legR: 0.1, armL: -1.5, armR: 1.5, bob: 0 },
+];
+
+const ACCENT = { default:'#ef4444', mariachi:'#16a34a', ninja:'#1e293b', viking:'#1d4ed8', robot:'#06b6d4', luchador:'#9333ea' };
+
+function drawMenuSkull(ctx, x, y, frame, flip, skinId, action) {
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(Math.round(x), Math.round(y));
+  if (flip) ctx.scale(-1, 1);
 
-  let bodyRot = 0, headBob = 0, armL = -0.3, armR = 0.3;
-  if (action === 'dance') {
-    bodyRot = Math.sin(t * 0.005) * 0.18;
-    headBob = Math.sin(t * 0.01) * 6;
-    armL = -0.3 + Math.sin(t * 0.008) * 0.6;
-    armR = 0.3 - Math.sin(t * 0.008) * 0.6;
-  } else if (action === 'fight') {
-    bodyRot = Math.sin(t * 0.012) * 0.1;
-    armL = -0.8 + Math.sin(t * 0.015) * 0.5;
-    armR = 0.8 - Math.cos(t * 0.013) * 0.4;
-  } else if (action === 'celebrate') {
-    bodyRot = Math.sin(t * 0.007) * 0.12;
-    headBob = -Math.abs(Math.sin(t * 0.009)) * 8;
-    armL = -1.2 + Math.sin(t * 0.009) * 0.3;
-    armR = 1.2 - Math.sin(t * 0.009) * 0.3;
-  } else if (action === 'fall') {
-    bodyRot = t * 0.002;
-    headBob = Math.sin(t * 0.006) * 4;
-  }
+  const { legL, legR, armL, armR, bob } = frame;
 
-  ctx.rotate(bodyRot);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 26, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+  // Sombra (se achica un poco cuando el sprite "salta" en el bob)
+  const shadowScale = 1 - Math.min(Math.abs(bob) / 20, 0.35);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0, 26, 15 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2); ctx.fill();
 
-  const accent = { default:'#ef4444', mariachi:'#16a34a', ninja:'#1e293b', viking:'#1d4ed8', robot:'#06b6d4', luchador:'#9333ea' };
+  ctx.translate(0, bob);
+
+  // Piernas (grosor tipo pixel-sprite, sin curvas)
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 5; ctx.lineCap = 'square';
+  ctx.save(); ctx.translate(-5, 20); ctx.rotate(legL);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 13); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(5, 20); ctx.rotate(legR);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 13); ctx.stroke(); ctx.restore();
+
+  // Torso
   ctx.fillStyle = '#1e293b';
   ctx.beginPath(); ctx.roundRect(-11, 2, 22, 20, 4); ctx.fill();
-  ctx.fillStyle = accent[skinId] || '#ef4444';
+  ctx.fillStyle = ACCENT[skinId] || '#ef4444';
   ctx.fillRect(-9, 4, 18, 5);
 
-  const legW = Math.sin(t * 0.009) * 0.3;
-  ctx.strokeStyle = '#475569'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-  ctx.save(); ctx.translate(-5, 22); ctx.rotate(legW);
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-3, 14); ctx.stroke(); ctx.restore();
-  ctx.save(); ctx.translate(5, 22); ctx.rotate(-legW);
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(3, 14); ctx.stroke(); ctx.restore();
-
-  ctx.strokeStyle = '#475569'; ctx.lineWidth = 4;
+  // Brazos
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 4; ctx.lineCap = 'square';
   ctx.save(); ctx.translate(-11, 7); ctx.rotate(armL);
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-13, 11); ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 13); ctx.stroke(); ctx.restore();
   ctx.save(); ctx.translate(11, 7); ctx.rotate(armR);
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(13, 11); ctx.stroke(); ctx.restore();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 13); ctx.stroke(); ctx.restore();
 
-  ctx.save();
-  ctx.translate(0, headBob);
-  const skullGrad = ctx.createRadialGradient(-3,-14,1,0,-12,14);
+  // Cabeza (calavera)
+  const skullGrad = ctx.createRadialGradient(-3, -14, 1, 0, -12, 14);
   skullGrad.addColorStop(0, '#f8fafc'); skullGrad.addColorStop(1, '#cbd5e1');
   ctx.fillStyle = skullGrad;
-  ctx.beginPath(); ctx.arc(0,-12,14,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -12, 14, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#e2e8f0';
-  ctx.beginPath(); ctx.arc(0,-4,10,0,Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -4, 10, 0, Math.PI); ctx.fill();
   ctx.fillStyle = '#fff';
-  for (let ti = -7; ti <= 7; ti += 4) ctx.fillRect(ti-1,-7,3,6);
+  for (let ti = -7; ti <= 7; ti += 4) ctx.fillRect(ti - 1, -7, 3, 6);
 
   if (action === 'celebrate') {
     ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(-5,-16,4,Math.PI,0); ctx.stroke();
-    ctx.beginPath(); ctx.arc(5,-16,4,Math.PI,0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-5, -16, 4, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(5, -16, 4, Math.PI, 0); ctx.stroke();
   } else if (action === 'fall') {
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(-7,-18); ctx.lineTo(-3,-14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-3,-18); ctx.lineTo(-7,-14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(3,-18); ctx.lineTo(7,-14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(7,-18); ctx.lineTo(3,-14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7, -18); ctx.lineTo(-3, -14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-3, -18); ctx.lineTo(-7, -14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3, -18); ctx.lineTo(7, -14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7, -18); ctx.lineTo(3, -14); ctx.stroke();
   } else {
     ctx.fillStyle = '#1e293b';
-    ctx.beginPath(); ctx.arc(-5,-16,4,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(5,-16,4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, -16, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, -16, 4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(-5,-16,2,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(5,-16,2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, -16, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, -16, 2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.beginPath(); ctx.arc(-4,-17,1,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(6,-17,1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-4, -17, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6, -17, 1, 0, Math.PI * 2); ctx.fill();
   }
 
   if (skinId === 'mariachi') {
     ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath(); ctx.ellipse(0,-24,11,3,0,0,Math.PI*2); ctx.fill();
-    ctx.fillRect(-7,-24,14,-8);
-    ctx.fillStyle = '#16a34a'; ctx.fillRect(-7,-26,14,2);
+    ctx.beginPath(); ctx.ellipse(0, -24, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(-7, -24, 14, -8);
+    ctx.fillStyle = '#16a34a'; ctx.fillRect(-7, -26, 14, 2);
   } else if (skinId === 'viking') {
     ctx.fillStyle = '#6b7280';
-    ctx.beginPath(); ctx.arc(0,-20,11,Math.PI,0); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -20, 11, Math.PI, 0); ctx.fill();
     ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(-13,-20); ctx.lineTo(-18,-14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(13,-20); ctx.lineTo(18,-14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-13, -20); ctx.lineTo(-18, -14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(13, -20); ctx.lineTo(18, -14); ctx.stroke();
   } else if (skinId === 'ninja') {
-    ctx.fillStyle = '#1e293b'; ctx.fillRect(-14,-20,28,6);
-    ctx.fillStyle = '#ef4444'; ctx.fillRect(-14,-21,28,2);
+    ctx.fillStyle = '#1e293b'; ctx.fillRect(-14, -20, 28, 6);
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(-14, -21, 28, 2);
   } else if (skinId === 'robot') {
     ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0,-25); ctx.lineTo(0,-32); ctx.stroke();
-    ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(0,-32,3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(0, -32); ctx.stroke();
+    ctx.fillStyle = '#22d3ee'; ctx.beginPath(); ctx.arc(0, -32, 3, 0, Math.PI * 2); ctx.fill();
   } else if (skinId === 'luchador') {
     ctx.fillStyle = '#9333ea';
-    ctx.beginPath(); ctx.arc(0,-12,14,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -12, 14, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fbbf24';
-    ctx.beginPath(); ctx.arc(-5,-16,4,0,Math.PI*2); ctx.arc(5,-16,4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, -16, 4, 0, Math.PI * 2); ctx.arc(5, -16, 4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(-5,-16,2,0,Math.PI*2); ctx.arc(5,-16,2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, -16, 2, 0, Math.PI * 2); ctx.arc(5, -16, 2, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.restore(); ctx.restore();
+  ctx.restore();
 }
 
 function drawShipSilhouette(ctx, x, y, scale) {
@@ -152,9 +173,10 @@ const MINIONS = [
 export default function MainMenu({ onPlay, onShop, onSettings, onDailyReward, onLevels, storeData = {}, level = 1 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
-  const minions = useRef(MINIONS.map(m => ({ ...m, baseX: m.x })));
+  const minions = useRef(MINIONS.map(m => ({ ...m, baseX: m.x, walkPhase: Math.random() * 4 })));
   const cannonballs = useRef([]);
   const particlesRef = useRef([]);
+  const minionFxRef = useRef([]);
 
   const coins = getDisplayCoins(storeData);
   const gems = storeData.gems || 0;
@@ -255,11 +277,81 @@ export default function MainMenu({ onPlay, onShop, onSettings, onDailyReward, on
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(0, 320, 900, 160);
 
-      // Minions caminando y haciendo su acción
+      // Minions: sprite por frames (caminata real), volteo de dirección y efectos por acción
       minions.current.forEach(m => {
-        m.x += m.vx;
-        if (m.x < m.baseX - 55 || m.x > m.baseX + 55) m.vx *= -1;
-        drawMenuSkull(ctx, m.x, m.y, t, m.skin, m.action);
+        const moving = m.action !== 'fall';
+        if (moving) {
+          m.x += m.vx;
+          if (m.x < m.baseX - 55 || m.x > m.baseX + 55) m.vx *= -1;
+          // La velocidad del ciclo de piernas depende de qué tan rápido camina
+          m.walkPhase += Math.abs(m.vx) * 0.22;
+        } else {
+          m.walkPhase += 0.05; // idle lento para el mareado
+        }
+
+        const flip = m.vx < 0;
+        const frameSet = m.action === 'dance' ? DANCE_FRAMES
+          : m.action === 'fight' ? FIGHT_FRAMES
+          : m.action === 'celebrate' ? CELEBRATE_FRAMES
+          : WALK_FRAMES;
+        const frameIdx = Math.floor(m.walkPhase) % frameSet.length;
+        const frame = frameSet[frameIdx];
+
+        if (m.action === 'fall') {
+          // Calavera mareada tirada, gira lento en el piso + estrellitas orbitando
+          ctx.save();
+          ctx.translate(m.x, m.y + 14);
+          ctx.rotate(Math.PI / 2 + Math.sin(t * 0.02) * 0.05);
+          drawMenuSkull(ctx, 0, 0, WALK_FRAMES[0], false, m.skin, 'fall');
+          ctx.restore();
+          for (let i = 0; i < 3; i++) {
+            const ang = t * 0.05 + (i * Math.PI * 2) / 3;
+            ctx.fillStyle = '#fde68a';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('✨', m.x + Math.cos(ang) * 16 - 5, m.y - 20 + Math.sin(ang) * 6);
+          }
+        } else {
+          drawMenuSkull(ctx, m.x, m.y, frame, flip, m.skin, m.action);
+
+          // Polvito al caminar (cuando el pie toca el piso, frames 0 y 2)
+          if (moving && (frameIdx === 0 || frameIdx === 2) && Math.random() < 0.5) {
+            minionFxRef.current.push({ type: 'dust', x: m.x, y: m.y + 24, vx: -m.vx * 0.3, vy: -0.3, life: 14 });
+          }
+          // Notitas musicales al bailar
+          if (m.action === 'dance' && t % 14 === 0) {
+            minionFxRef.current.push({ type: 'note', x: m.x + (Math.random() - 0.5) * 10, y: m.y - 30, vx: (Math.random() - 0.5) * 0.4, vy: -0.6, life: 40 });
+          }
+          // Estrellitas de impacto al pelear
+          if (m.action === 'fight' && frameIdx === 1 && Math.random() < 0.4) {
+            minionFxRef.current.push({ type: 'hit', x: m.x + (flip ? -14 : 14), y: m.y - 4, vx: 0, vy: 0, life: 10 });
+          }
+          // Chispas al festejar
+          if (m.action === 'celebrate' && frameIdx === 1 && Math.random() < 0.6) {
+            minionFxRef.current.push({ type: 'spark', x: m.x + (Math.random() - 0.5) * 20, y: m.y - 34, vx: (Math.random() - 0.5) * 1.2, vy: -1 - Math.random(), life: 22 });
+          }
+        }
+      });
+
+      // Dibuja y actualiza efectos de los minions
+      minionFxRef.current = minionFxRef.current.filter(fx => {
+        fx.x += fx.vx; fx.y += fx.vy; fx.life--;
+        const a = Math.max(fx.life, 0) / (fx.type === 'note' ? 40 : fx.type === 'spark' ? 22 : fx.type === 'dust' ? 14 : 10);
+        if (fx.type === 'dust') {
+          ctx.fillStyle = `rgba(226,232,240,${a * 0.5})`;
+          ctx.beginPath(); ctx.arc(fx.x, fx.y, 2.5 * a, 0, Math.PI * 2); ctx.fill();
+        } else if (fx.type === 'note') {
+          ctx.fillStyle = `rgba(251,191,36,${a})`;
+          ctx.font = '12px sans-serif';
+          ctx.fillText('♪', fx.x, fx.y);
+        } else if (fx.type === 'hit') {
+          ctx.fillStyle = `rgba(255,255,255,${a})`;
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillText('✦', fx.x, fx.y);
+        } else if (fx.type === 'spark') {
+          ctx.fillStyle = `rgba(253,230,138,${a})`;
+          ctx.beginPath(); ctx.arc(fx.x, fx.y, 1.8 * a, 0, Math.PI * 2); ctx.fill();
+        }
+        return fx.life > 0;
       });
 
       // Cañonazos con estela + partículas al salir de pantalla
