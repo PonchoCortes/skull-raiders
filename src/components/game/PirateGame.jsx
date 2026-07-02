@@ -196,6 +196,40 @@ const SHIP_IMAGES = {
   classic:  { player: '/images/ship_player.png',          enemy: '/images/ship_enemy.png' },
   obsidian: { player: '/images/ship_player_obsidian.png',  enemy: '/images/ship_enemy_obsidian.png' },
 };
+// ---- PERSONAJES DE LA TRIPULACIÓN (spritesheet articulado) ----
+// Hoja de 1400x3600: 12 filas de acciones x 4 columnas de frames, con una
+// columna de "etiqueta" de 200px al inicio de cada fila que no se dibuja.
+const CHAR_CELL = 300, CHAR_LABEL = 200;
+const CHAR_ACTIONS = {
+  idle:    { row: 0,  frames: 4 },
+  walk:    { row: 1,  frames: 4 },
+  run:     { row: 2,  frames: 4 },
+  jump:    { row: 3,  frames: 4 },
+  attack:  { row: 4,  frames: 4 },
+  laugh:   { row: 5,  frames: 3 },
+  angry:   { row: 6,  frames: 3 },
+  cry:     { row: 7,  frames: 3 },
+  hit:     { row: 8,  frames: 3 },
+  dead:    { row: 9,  frames: 3 },
+  orders:  { row: 10, frames: 3 },
+  retreat: { row: 11, frames: 3 },
+};
+const CHAR_FRAME_MS = 160;
+
+function drawCharacter(ctx, x, y, flip, actionState, actionStart, t2, img) {
+  if (!img || !img.complete || img.naturalWidth === 0) return;
+  const act = CHAR_ACTIONS[actionState] || CHAR_ACTIONS.idle;
+  const frame = Math.floor((t2 - actionStart) / CHAR_FRAME_MS) % act.frames;
+  const sx = CHAR_LABEL + frame * CHAR_CELL;
+  const sy = act.row * CHAR_CELL;
+  const size = 150;
+  ctx.save();
+  ctx.translate(x, y);
+  if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(img, sx, sy, CHAR_CELL, CHAR_CELL, -size / 2, -size, size, size);
+  ctx.restore();
+}
+
 function getShipImagePaths(skinId) {
   return SHIP_IMAGES[skinId] || SHIP_IMAGES.classic;
 }
@@ -322,6 +356,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
   const imgPlayerRef = useRef(new Image());
   const imgEnemyRef = useRef(new Image());
+  const imgCharPlayerRef = useRef(new Image());
+  const imgCharEnemyRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
@@ -345,6 +381,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     imgPlayerRef.current.src = paths.player;
     imgEnemyRef.current.src = paths.enemy;
   }, [shipSkin]);
+
+  useEffect(() => {
+    imgCharPlayerRef.current.src = '/images/pirate_player_sheet.png';
+    imgCharEnemyRef.current.src = '/images/pirate_enemy_sheet.png';
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -482,6 +523,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       },
       cinematic: false,
       wildlife,
+      // Animación de los dos personajes parados en cubierta
+      charAnim: {
+        player: { action: 'idle', actionStart: 0, holdUntil: null },
+        enemy:  { action: 'idle', actionStart: 0, holdUntil: null },
+      },
     };
     gameRef.current = G;
 
@@ -489,6 +535,16 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     const pivC = { x: G.cpuShipPos.x - 130, y: G.cpuShipPos.y - 40 };
 
     function addFX(x, y, type, extra={}) { G.fx.push({x,y,type,life:1,...extra}); }
+
+    // Cambia la animación de un personaje ('player' o 'enemy'). Si holdMs se
+    // especifica, después de ese tiempo vuelve solo a 'idle'.
+    function setCharAction(who, action, holdMs = null) {
+      const st = G.charAnim[who];
+      if (!st) return;
+      st.action = action;
+      st.actionStart = G.t;
+      st.holdUntil = holdMs ? G.t + holdMs : null;
+    }
 
     function countAliveJ() { return skullsAliados.filter(s=>!s.dead).length; }
     function countAliveE() { return skullsEnemigos.filter(s=>!s.dead).length; }
@@ -501,6 +557,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       Body.setVelocity(b, {x:dx*0.062, y:dy*0.062});
       G.shake=10; audio.playSFX('shoot');
       addFX(pivJ.x, pivJ.y, 'flash');
+      setCharAction('player', 'attack', 550);
       G.turno='cpu'; G.camState='following'; G.projTrailPoints=[];
       setHudState(s=>({...s,turno:'cpu'}));
     }
@@ -542,6 +599,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       Body.setVelocity(b,{x:baseVx+(Math.random()-0.5)*scatter,y:baseVy+(Math.random()-0.5)*scatter});
       G.shake=10; audio.playSFX('shoot');
       addFX(pivC.x,pivC.y,'flash'); G.camState='following'; G.projTrailPoints=[];
+      setCharAction('enemy', 'attack', 550);
     }
 
     function hitSkull(skullObj, bala, force=1) {
@@ -549,6 +607,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       skullObj.hp--;
       audio.playSFX('skull_hit');
       addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_impact', { color: bala.bando==='jugador'?'#f59e0b':'#ef4444' });
+      // El personaje del bando golpeado reacciona con dolor
+      setCharAction(bala.bando==='jugador' ? 'enemy' : 'player', 'hit', 400);
 
       const vx = bala.velocity?.x || 0;
       const vy = bala.velocity?.y || 0;
@@ -648,12 +708,14 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       if(countAliveE()<=0){
         G.gameOver=true; G.won=true;
         audio.playSFX('levelup');
+        setCharAction('player','laugh'); setCharAction('enemy','dead');
         const pct=countAliveJ()/totalSkulls;
         const stars=pct>0.7?3:pct>0.3?2:1;
         setTimeout(()=>onLevelComplete(stars),2800);
         setHudState(s=>({...s,gameOver:true,won:true}));
       } else if(countAliveJ()<=0){
         G.gameOver=true; G.won=false;
+        setCharAction('player','dead'); setCharAction('enemy','laugh');
         setTimeout(()=>onLevelFail(),2500);
         setHudState(s=>({...s,gameOver:true,won:false}));
       }
@@ -688,6 +750,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         G.mouseDown = true;
         G.miraPos = pos;
         G.camState = 'aiming';
+        setCharAction('player', 'orders');
       }
     }
 
@@ -1180,7 +1243,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           } else { G.camState='linger'; G.lingerTimer=80; }
           break;
         }
-        case 'linger': G.lingerTimer--; if(G.lingerTimer<=0){G.camState='returning';if(G.turno==='cpu'&&!G.gameOver)G.tiempoDisparoCpu=performance.now()+1200;} break;
+        case 'linger': G.lingerTimer--; if(G.lingerTimer<=0){G.camState='returning';if(G.turno==='cpu'&&!G.gameOver){G.tiempoDisparoCpu=performance.now()+1200;setCharAction('enemy','orders');}} break;
         case 'returning':
           G.camTargetX=G.turno==='jugador'?0:MAPA_W-CANVAS_W; G.camTargetY=0; G.camTargetZoom=1; G.projTrailPoints=[];
           if(Math.abs(G.camX-G.camTargetX)<5&&Math.abs(G.camZoom-1)<0.02)G.camState='idle';
@@ -1200,6 +1263,14 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       const elapsed = t2 - G.startTime;
       updateWildlife();
 
+      // Las animaciones temporales (ataque, golpe) vuelven solas a "idle"
+      if (!G.gameOver) {
+        ['player','enemy'].forEach(who => {
+          const st = G.charAnim[who];
+          if (st.holdUntil && t2 > st.holdUntil) { st.action='idle'; st.actionStart=t2; st.holdUntil=null; }
+        });
+      }
+
       // ---- MEGALODÓN: se activa una sola vez por partida si toca ----
       const mg = G.megalodon;
       if (mg.willAttack && !mg.triggered && !G.gameOver && elapsed > mg.attackAt) {
@@ -1213,7 +1284,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           G.shake = Math.max(G.shake, mg.phaseT * 7);
           if (mg.phaseT >= 1) { mg.phase = 'bite'; mg.phaseT = 0; }
         } else if (mg.phase === 'bite') {
-          if (mg.phaseT === 0) { audio.playSFX('explode'); mg.shipEaten = true; }
+          if (mg.phaseT === 0) { audio.playSFX('explode'); mg.shipEaten = true; setCharAction('enemy','laugh'); }
           mg.phaseT += 1 / 40;
           G.shake = Math.max(G.shake, 16);
           if (mg.phaseT >= 1) { mg.phase = 'sink'; mg.phaseT = 0; }
@@ -1349,6 +1420,17 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
       const bob1=Math.sin(timestamp*0.003+G.shipPos.x*0.01)*4;
       const bob2=Math.sin(timestamp*0.003+G.cpuShipPos.x*0.01)*4;
+
+      // Piratas de la tripulación parados en cubierta (el bueno y el malo)
+      if (!G.megalodon.shipEaten) {
+        const pAnim = G.charAnim.player;
+        drawCharacter(ctx, G.shipPos.x - 45, G.shipPos.y - 95 + bob1, false, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
+      }
+      if (!levelDef.boss) {
+        const eAnim = G.charAnim.enemy;
+        drawCharacter(ctx, G.cpuShipPos.x + 45, G.cpuShipPos.y - 95 + bob2, true, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
+      }
+
       if (!G.megalodon.shipEaten) drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
       if(!levelDef.boss||levelDef.boss.type!=='FORTRESS')
         drawCannon(ctx, pivC.x, pivC.y+bob2, G.angC, 'iron');
