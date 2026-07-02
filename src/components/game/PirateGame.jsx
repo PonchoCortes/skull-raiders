@@ -234,6 +234,20 @@ function getShipImagePaths(skinId) {
   return SHIP_IMAGES[skinId] || SHIP_IMAGES.classic;
 }
 
+function drawCaptainHP(ctx, x, y, hp, maxHp, color) {
+  const bw = 66;
+  ctx.save();
+  ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
+  ctx.strokeText('CAPITÁN', x, y - 10);
+  ctx.fillStyle = '#fde68a';
+  ctx.fillText('CAPITÁN', x, y - 10);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - bw/2 - 2, y - 6, bw + 4, 12);
+  ctx.fillStyle = color; ctx.fillRect(x - bw/2, y - 4, bw * Math.max(hp,0) / maxHp, 8);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x - bw/2, y - 4, bw, 8);
+  ctx.restore();
+}
+
 function drawShip(ctx, x, y, enemy, skinId, t, playerImg, enemyImg) {
   ctx.save();
   const bob = Math.sin(t * 0.003 + x * 0.01) * 4;
@@ -462,7 +476,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     const playerDeckPositions = [
       { x: -58, y: -24 }, // Atrás (pegado al capitán)
       { x: 8,   y: -24 }, // Centro (pegado al capitán, mismo nivel)
-      { x: 74,  y: -36 }  // Adelante (más arriba, cerca del cañón)
+      { x: 74,  y: -46 }  // Adelante (punta del barco, más arriba)
     ];
 
     for (let i = 0; i < totalSkulls; i++) {
@@ -491,6 +505,18 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       Composite.add(world, bE);
     }
 
+    // ---- CAPITANES: se vuelven un objetivo real una vez que caen sus 3 piratas ----
+    // No se agregan al mundo físico hasta que se "activan" (engaged), así las
+    // balas no chocan con ellos mientras los piratas normales siguen en pie.
+    const captainAliado = {
+      hp: 3, maxHp: 3, dead: false, engaged: false,
+      body: Bodies.circle(playerStartX - 75, playerStartY - 35, 42, { isStatic:false, isSensor:true, label:'captain_aliado', frictionAir:0.1 }),
+    };
+    const captainEnemigo = {
+      hp: 3, maxHp: 3, dead: false, engaged: false,
+      body: Bodies.circle(cxBase + 75, yBarcoEnemigo - 35, 42, { isStatic:false, isSensor:true, label:'captain_enemigo', frictionAir:0.1 }),
+    };
+
     const G = {
       camX:0, camY:0, camTargetX:0, camTargetY:0,
       camZoom:1, camTargetZoom:1, shake:0,
@@ -511,14 +537,13 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       isDraggingShip: false,
       // IA: la CPU va corrigiendo su puntería según qué tan lejos cayeron sus tiros anteriores
       cpuAimBias: { x: 0, y: 0 },
-      // Cuenta los disparos del jugador que NO le pegaron a ningún enemigo
-      // (se usa para poder probar el megalodón rápido, ver nota más abajo)
-      playerMisses: 0,
-      // Evento sorpresa del megalodón
+      // Cuenta TODOS los disparos de la partida (de ambos bandos)
+      totalShots: 0,
+      // Evento sorpresa del megalodón: aparece garantizado en algún punto
+      // aleatorio entre el disparo 20 y el 50 de la partida.
       megalodon: {
         active: false,
-        willAttack: failStreak >= 20 && failStreak <= 50 && Math.random() < 0.3,
-        attackAt: 6000 + Math.random() * 14000,
+        triggerAtShot: 20 + Math.floor(Math.random() * 31), // 20 a 50
         phase: null,
         phaseT: 0,
         triggered: false,
@@ -561,26 +586,35 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       G.shake=10; audio.playSFX('shoot');
       addFX(pivJ.x, pivJ.y, 'flash');
       setCharAction('player', 'attack', 550);
+      G.totalShots++;
       G.turno='cpu'; G.camState='following'; G.projTrailPoints=[];
       setHudState(s=>({...s,turno:'cpu'}));
     }
 
     function dispararCompu() {
-      if (countAliveJ()<=0||countAliveE()<=0||G.gameOver) return;
+      if (G.gameOver) return;
       const alive = skullsAliados.filter(s=>!s.dead);
-      if (alive.length===0) return;
 
       // IA de objetivo: 65% de las veces va a rematar al que tiene menos vida
       // (como haría un jugador real buscando eliminar aliados), el resto es
-      // más impredecible y dispara a cualquiera.
-      let objetivo;
-      if (Math.random() < 0.65) {
-        objetivo = [...alive].sort((a, b) => a.hp - b.hp)[0];
+      // más impredecible y dispara a cualquiera. Si ya no quedan piratas,
+      // le apunta directo al capitán (una vez que quedó activado).
+      let objetivoPos;
+      if (alive.length > 0) {
+        let objetivo;
+        if (Math.random() < 0.65) {
+          objetivo = [...alive].sort((a, b) => a.hp - b.hp)[0];
+        } else {
+          objetivo = alive[Math.floor(Math.random() * alive.length)];
+        }
+        objetivoPos = objetivo.body.position;
+      } else if (captainAliado.engaged && !captainAliado.dead) {
+        objetivoPos = captainAliado.body.position;
       } else {
-        objetivo = alive[Math.floor(Math.random() * alive.length)];
+        return;
       }
 
-      const targetX=objetivo.body.position.x, targetY=objetivo.body.position.y;
+      const targetX=objetivoPos.x, targetY=objetivoPos.y;
       const distX=pivC.x-targetX;
       let baseVx=-(11.5+distX/86);
       let baseVy=-12.5-(distX/115)+((pivC.y-targetY)*0.04);
@@ -604,6 +638,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       G.shake=10; audio.playSFX('shoot');
       addFX(pivC.x,pivC.y,'flash'); G.camState='following'; G.projTrailPoints=[];
       setCharAction('enemy', 'attack', 550);
+      G.totalShots++;
     }
 
     function hitSkull(skullObj, bala, force=1) {
@@ -668,7 +703,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           addFX(bala.position.x,bala.position.y,'rock_hit');
           if(mtn.hp<=0){audio.playSFX('explode');addFX(mtn.position.x,mtn.position.y,'mountain_destroy');if(!G.cuerposPorBorrar.includes(mtn))G.cuerposPorBorrar.push(mtn);}
           if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
-          if(bala.bando==='jugador') G.playerMisses++;
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
           return;
         }
@@ -678,7 +712,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           // CAMBIO: Splash del agua sube 3 píxeles (de MAPA_H-180 a MAPA_H-183)
           addFX(bala.position.x,MAPA_H-183,'splash');
           if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
-          if(bala.bando==='jugador') G.playerMisses++;
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
         }
 
@@ -706,12 +739,59 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
             }
           }
         }
+
+        if (A.label==='captain_aliado'||B.label==='captain_aliado') {
+          if(bala.bando==='compu'&&!captainAliado.dead){
+            captainAliado.hp--;
+            audio.playSFX('skull_hit');
+            addFX(captainAliado.body.position.x, captainAliado.body.position.y, 'skull_impact', {color:'#ef4444'});
+            setCharAction('player','hit',400);
+            if(captainAliado.hp<=0){
+              captainAliado.dead=true;
+              audio.playSFX('explode');
+              addFX(captainAliado.body.position.x, captainAliado.body.position.y, 'skull_death');
+            }
+            if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
+            checkGameOver();
+          }
+        }
+        if (A.label==='captain_enemigo'||B.label==='captain_enemigo') {
+          if(bala.bando==='jugador'&&!captainEnemigo.dead){
+            captainEnemigo.hp--;
+            audio.playSFX('skull_hit');
+            addFX(captainEnemigo.body.position.x, captainEnemigo.body.position.y, 'skull_impact', {color:'#f59e0b'});
+            setCharAction('enemy','hit',400);
+            if(captainEnemigo.hp<=0){
+              captainEnemigo.dead=true;
+              audio.playSFX('explode');
+              addFX(captainEnemigo.body.position.x, captainEnemigo.body.position.y, 'skull_death');
+            }
+            if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
+            checkGameOver();
+          }
+        }
       });
     });
 
     function checkGameOver() {
       if(G.gameOver) return;
-      if(countAliveE()<=0){
+
+      // Al caer los 3 piratas de un bando, se activa a su capitán como objetivo
+      // (el capitán enemigo no aplica en niveles con jefe, el jefe ya es el objetivo)
+      if(!levelDef.boss && countAliveE()<=0 && !captainEnemigo.engaged){
+        captainEnemigo.engaged=true;
+        Composite.add(world, captainEnemigo.body);
+        addFX(captainEnemigo.body.position.x, captainEnemigo.body.position.y-20, 'portal_burst', {color:'#f59e0b'});
+      }
+      if(countAliveJ()<=0 && !captainAliado.engaged){
+        captainAliado.engaged=true;
+        Composite.add(world, captainAliado.body);
+        addFX(captainAliado.body.position.x, captainAliado.body.position.y-20, 'portal_burst', {color:'#ef4444'});
+      }
+
+      const enemyDefeated = levelDef.boss ? countAliveE()<=0 : (countAliveE()<=0 && captainEnemigo.dead);
+
+      if(enemyDefeated){
         G.gameOver=true; G.won=true;
         audio.playSFX('levelup');
         setCharAction('player','laugh'); setCharAction('enemy','dead');
@@ -719,7 +799,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         const stars=pct>0.7?3:pct>0.3?2:1;
         setTimeout(()=>onLevelComplete(stars),2800);
         setHudState(s=>({...s,gameOver:true,won:true}));
-      } else if(countAliveJ()<=0){
+      } else if(countAliveJ()<=0 && captainAliado.dead){
         G.gameOver=true; G.won=false;
         setCharAction('player','dead'); setCharAction('enemy','laugh');
         setTimeout(()=>onLevelFail(),2500);
@@ -1334,9 +1414,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function physicsUpdate(t2) {
-      if (G.startTime === null) G.startTime = t2;
-      const elapsed = t2 - G.startTime;
       updateWildlife();
+
+      // Los capitanes siguen al barco (misma posición que se usa para dibujarlos)
+      Body.setPosition(captainAliado.body, { x: G.shipPos.x - 75, y: G.shipPos.y - 35 });
+      Body.setPosition(captainEnemigo.body, { x: G.cpuShipPos.x + 75, y: G.cpuShipPos.y - 35 });
 
       // Las animaciones temporales (ataque, golpe) vuelven solas a "idle"
       if (!G.gameOver) {
@@ -1346,14 +1428,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         });
       }
 
-      // ---- MEGALODÓN: se activa una sola vez por partida si toca ----
+      // ---- MEGALODÓN: mecánica original — aparece SEGURO en algún punto
+      // aleatorio entre el disparo 20 y el 50 de la partida (cuentan los
+      // disparos de ambos bandos por igual). Una sola vez por partida.
       const mg = G.megalodon;
-      // ⚠️ TEMPORAL (pedido para probarlo): también se activa apenas el jugador
-      // falla su 2do disparo, sin importar la racha de intentos. Cuando ya lo
-      // hayan visto, borra esta línea de "pruebaRapida" y el "||" de abajo
-      // para dejar SOLO la mecánica normal (20-50 intentos sin ganar).
-      const pruebaRapida = G.playerMisses >= 2;
-      if (!mg.triggered && !G.gameOver && ((mg.willAttack && elapsed > mg.attackAt) || pruebaRapida)) {
+      if (!mg.triggered && !G.gameOver && G.totalShots >= mg.triggerAtShot) {
         mg.triggered = true; mg.active = true; mg.phase = 'rising'; mg.phaseT = 0;
         G.cinematic = true; G.mouseDown = false; G.isDraggingShip = false;
         audio.playSFX('splash');
@@ -1505,10 +1584,16 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       if (!G.megalodon.shipEaten) {
         const pAnim = G.charAnim.player;
         drawCharacter(ctx, G.shipPos.x - 75, G.shipPos.y - 35 + bob1, true, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
+        if (captainAliado.engaged && !captainAliado.dead) {
+          drawCaptainHP(ctx, G.shipPos.x - 75, G.shipPos.y - 125 + bob1, captainAliado.hp, captainAliado.maxHp, '#ef4444');
+        }
       }
       if (!levelDef.boss) {
         const eAnim = G.charAnim.enemy;
         drawCharacter(ctx, G.cpuShipPos.x + 75, G.cpuShipPos.y - 35 + bob2, false, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
+        if (captainEnemigo.engaged && !captainEnemigo.dead) {
+          drawCaptainHP(ctx, G.cpuShipPos.x + 75, G.cpuShipPos.y - 125 + bob2, captainEnemigo.hp, captainEnemigo.maxHp, '#f59e0b');
+        }
       }
 
       if (!G.megalodon.shipEaten) drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
