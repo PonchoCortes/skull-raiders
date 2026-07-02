@@ -460,9 +460,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
     // Monos repartidos en cubierta, siguiendo apenas la curva del casco
     const playerDeckPositions = [
-      { x: -58, y: -14 }, // Atrás
-      { x: 8,   y: -2 },  // Centro
-      { x: 74,  y: -16 }  // Adelante
+      { x: -58, y: -24 }, // Atrás (pegado al capitán)
+      { x: 8,   y: -24 }, // Centro (pegado al capitán, mismo nivel)
+      { x: 74,  y: -36 }  // Adelante (más arriba, cerca del cañón)
     ];
 
     for (let i = 0; i < totalSkulls; i++) {
@@ -1037,17 +1037,41 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       ctx.beginPath(); ctx.ellipse(0, 40, 180, 30, 0, 0, Math.PI * 2); ctx.fill();
 
-      // Cuerpo
-      const bodyGrad = ctx.createLinearGradient(0, -120, 0, 40);
-      bodyGrad.addColorStop(0, '#334155'); bodyGrad.addColorStop(1, '#0f172a');
+      // Cuerpo completo: cabeza + torso + cola (antes se cortaba a la mitad)
+      const bodyGrad = ctx.createLinearGradient(0, -160, 0, 90);
+      bodyGrad.addColorStop(0, '#475569'); bodyGrad.addColorStop(0.4, '#334155'); bodyGrad.addColorStop(1, '#0f172a');
       ctx.fillStyle = bodyGrad;
       ctx.beginPath();
-      ctx.moveTo(-190, 20);
+      ctx.moveTo(-260, 55);
+      ctx.quadraticCurveTo(-210, 15, -190, 20);
       ctx.quadraticCurveTo(-120, -140, 0, -150);
       ctx.quadraticCurveTo(120, -140, 170, 10);
-      ctx.quadraticCurveTo(60, 40, 0, 30);
-      ctx.quadraticCurveTo(-90, 45, -190, 20);
+      ctx.quadraticCurveTo(90, 50, 20, 55);
+      ctx.quadraticCurveTo(-90, 65, -190, 50);
+      ctx.quadraticCurveTo(-230, 50, -260, 55);
       ctx.closePath(); ctx.fill();
+
+      // Aleta caudal (cola), dos lóbulos
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.moveTo(-248, 48); ctx.lineTo(-325, 5); ctx.lineTo(-270, 62); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-248, 58); ctx.lineTo(-315, 110); ctx.lineTo(-262, 75); ctx.closePath(); ctx.fill();
+
+      // Aleta pectoral
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.moveTo(35, 42); ctx.lineTo(-25, 100); ctx.lineTo(65, 62); ctx.closePath(); ctx.fill();
+
+      // Panza más clara para dar volumen
+      ctx.fillStyle = 'rgba(203,213,225,0.45)';
+      ctx.beginPath();
+      ctx.moveTo(-150, 38); ctx.quadraticCurveTo(-50, 56, 50, 52); ctx.quadraticCurveTo(100, 46, 150, 15);
+      ctx.quadraticCurveTo(80, 48, -10, 50); ctx.quadraticCurveTo(-100, 52, -150, 38);
+      ctx.closePath(); ctx.fill();
+
+      // Branquias
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 3;
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath(); ctx.moveTo(95 + i * 10, -40); ctx.quadraticCurveTo(100 + i * 10, -15, 92 + i * 10, 5); ctx.stroke();
+      }
 
       // Aleta dorsal
       ctx.fillStyle = '#1e293b';
@@ -1076,6 +1100,19 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
       ctx.restore();
 
+      ctx.restore();
+
+      // Efecto "bajo el agua": la parte que quedó debajo de la línea del mar
+      // se ve difuminada/azulada, como si se viera a través del agua.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cx - 340, riseY, 700, 260);
+      ctx.clip();
+      const waterWash = ctx.createLinearGradient(0, riseY, 0, riseY + 260);
+      waterWash.addColorStop(0, 'rgba(11,90,181,0.12)');
+      waterWash.addColorStop(1, 'rgba(4,30,64,0.6)');
+      ctx.fillStyle = waterWash;
+      ctx.fillRect(cx - 340, riseY, 700, 260);
       ctx.restore();
 
       // Salpicaduras al emerger/hundirse
