@@ -65,6 +65,7 @@ export default function Game() {
       coins: (storeData.coins || 0) + total,
       missions: updatedMissions,
       currentLevel: newLevelNum,
+      failStreak: 0, // Ganó: se resetea la racha de intentos fallidos
     };
     setStoreData(nextStore);
     saveStore(nextStore);
@@ -73,6 +74,9 @@ export default function Game() {
   }
 
   function handleLevelFail() {
+    const nextStore = { ...storeData, failStreak: (storeData.failStreak || 0) + 1 };
+    setStoreData(nextStore);
+    saveStore(nextStore);
     setLevelResult({ won: false, stars: 0 });
   }
 
@@ -159,6 +163,7 @@ export default function Game() {
             onLevelComplete={handleLevelComplete}
             onLevelFail={handleLevelFail}
             storeData={storeData}
+            failStreak={storeData.failStreak || 0}
           />
           {/* In-game back button */}
           <button onClick={() => { audio.stopMusic(); setScreen('menu'); }}

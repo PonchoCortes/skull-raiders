@@ -16,6 +16,9 @@ export const DEFAULT_STORE = {
   musicVolume: 1,
   dailyStreak: 0,
   lastDaily: null,
+  // Cuenta intentos seguidos sin ganar (se resetea al ganar un nivel).
+  // Se usa para el evento sorpresa del megalodón.
+  failStreak: 0,
   // Modo prueba: desbloquea los 100 niveles y da monedas "infinitas" para
   // poder revisar todo el juego sin tener que jugarlo de principio a fin.
   // Se puede apagar en Ajustes antes de publicar la versión final.

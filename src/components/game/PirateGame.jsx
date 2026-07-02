@@ -314,7 +314,7 @@ function drawBoss(ctx, bx, by, type, t) {
   ctx.restore();
 }
 
-export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, storeData }) {
+export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, storeData, failStreak = 0 }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
@@ -376,6 +376,29 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       body.mountainData = {...m, idx:i}; body.hp = m.hp; body.maxHp = m.maxHp;
       mountainBodies.push(body); Composite.add(world, body);
     });
+
+    // --- MONTAÑAS DE FONDO (decorativas, en 2 capas de profundidad con parallax) ---
+    // Puramente visuales (no colisionan), le dan sensación de profundidad a la escena.
+    // Usan una semilla basada en el nivel para que la silueta no cambie entre frames.
+    function seededRandom(seed) {
+      let s = seed % 2147483647; if (s <= 0) s += 2147483646;
+      return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    }
+    const rngFar = seededRandom(levelDef.n * 7919 + 13);
+    const rngMid = seededRandom(levelDef.n * 4133 + 71);
+    const bgFarMountains = Array.from({ length: 7 }, (_, i) => ({
+      x: i * 300 + rngFar() * 160 - 80,
+      w: 200 + rngFar() * 150,
+      h: 80 + rngFar() * 60 + Math.min(levelDef.n, 60) * 0.5,
+    }));
+    const bgMidMountains = Array.from({ length: 6 }, (_, i) => ({
+      x: i * 360 + rngMid() * 180 - 90,
+      w: 240 + rngMid() * 170,
+      h: 120 + rngMid() * 80 + Math.min(levelDef.n, 60) * 0.6,
+    }));
+
+    // --- FAUNA AMBIENTAL (aves/murciélagos y delfines, decorativos) ---
+    const wildlife = { birds: [], dolphins: [], birdTimer: 200 + Math.random() * 200, dolphinTimer: 150 + Math.random() * 250 };
 
     const portalBodies = [];
     levelDef.portals.forEach((p,i) => {
@@ -440,10 +463,25 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       lightningTimer:60,
       lightning: false,
       t: 0,
+      startTime: null,
       shipPos: { x: playerStartX, y: playerStartY },
       cpuShipPos: { x: cxBase, y: yBarcoEnemigo },
       keys: {},
       isDraggingShip: false,
+      // IA: la CPU va corrigiendo su puntería según qué tan lejos cayeron sus tiros anteriores
+      cpuAimBias: { x: 0, y: 0 },
+      // Evento sorpresa del megalodón
+      megalodon: {
+        active: false,
+        willAttack: failStreak >= 20 && failStreak <= 50 && Math.random() < 0.3,
+        attackAt: 6000 + Math.random() * 14000,
+        phase: null,
+        phaseT: 0,
+        triggered: false,
+        shipEaten: false,
+      },
+      cinematic: false,
+      wildlife,
     };
     gameRef.current = G;
 
@@ -471,7 +509,17 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       if (countAliveJ()<=0||countAliveE()<=0||G.gameOver) return;
       const alive = skullsAliados.filter(s=>!s.dead);
       if (alive.length===0) return;
-      const objetivo = alive[Math.floor(Math.random()*alive.length)];
+
+      // IA de objetivo: 65% de las veces va a rematar al que tiene menos vida
+      // (como haría un jugador real buscando eliminar aliados), el resto es
+      // más impredecible y dispara a cualquiera.
+      let objetivo;
+      if (Math.random() < 0.65) {
+        objetivo = [...alive].sort((a, b) => a.hp - b.hp)[0];
+      } else {
+        objetivo = alive[Math.floor(Math.random() * alive.length)];
+      }
+
       const targetX=objetivo.body.position.x, targetY=objetivo.body.position.y;
       const distX=pivC.x-targetX;
       let baseVx=-(11.5+distX/86);
@@ -481,11 +529,16 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       const mtnBodies=Composite.allBodies(world).filter(b=>b.label.startsWith('mountain_'));
       let maxMtnH=0; mtnBodies.forEach(m=>{if(m.mountainData&&m.mountainData.h>maxMtnH)maxMtnH=m.mountainData.h;});
       if(maxMtnH>0){baseVy-=maxMtnH*0.038;baseVx*=0.92;}
+
+      // Corrección aprendida: si sus tiros anteriores cayeron desviados, se ajusta
+      baseVx += G.cpuAimBias.x;
+      baseVy += G.cpuAimBias.y;
+
       const acc=levelDef.cpuAccuracy||0.5;
       let scatter=(1-acc)*8;
       if(levelDef.n>=15)scatter*=0.25;
       const b=Bodies.circle(pivC.x,pivC.y,11,{label:'proyectil_compu',density:0.05,frictionAir:0.005});
-      b.bando='compu'; Composite.add(world,b);
+      b.bando='compu'; b.targetPos={x:targetX,y:targetY}; Composite.add(world,b);
       Body.setVelocity(b,{x:baseVx+(Math.random()-0.5)*scatter,y:baseVy+(Math.random()-0.5)*scatter});
       G.shake=10; audio.playSFX('shoot');
       addFX(pivC.x,pivC.y,'flash'); G.camState='following'; G.projTrailPoints=[];
@@ -510,6 +563,15 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         Body.setVelocity(skullObj.body, { x: (vx/mag)*20, y: -15 });
         Body.setAngularVelocity(skullObj.body, (Math.random()-0.5)*1.2);
       }
+    }
+
+    // La CPU corrige su puntería para el próximo disparo según qué tan lejos
+    // cayó este, como si estuviera "agarrando la distancia" al objetivo.
+    function aprenderDeTiro(bala) {
+      const errX = bala.targetPos.x - bala.position.x;
+      const errY = bala.targetPos.y - bala.position.y;
+      G.cpuAimBias.x = Math.max(-40, Math.min(40, G.cpuAimBias.x + errX * 0.12));
+      G.cpuAimBias.y = Math.max(-30, Math.min(30, G.cpuAimBias.y + errY * 0.12));
     }
 
     Events.on(engine, 'collisionStart', ev => {
@@ -541,6 +603,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           audio.playSFX('hit');
           addFX(bala.position.x,bala.position.y,'rock_hit');
           if(mtn.hp<=0){audio.playSFX('explode');addFX(mtn.position.x,mtn.position.y,'mountain_destroy');if(!G.cuerposPorBorrar.includes(mtn))G.cuerposPorBorrar.push(mtn);}
+          if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
           return;
         }
@@ -549,6 +612,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           audio.playSFX('splash');
           // CAMBIO: Splash del agua sube 3 píxeles (de MAPA_H-180 a MAPA_H-183)
           addFX(bala.position.x,MAPA_H-183,'splash');
+          if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
         }
 
@@ -607,7 +671,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
     function onDown(e) {
       audio.init();
-      if(G.turno!=='jugador'||G.balaEnElAire||G.gameOver) return;
+      if(G.turno!=='jugador'||G.balaEnElAire||G.gameOver||G.cinematic) return;
       const pos = getWorldPos(e);
       
       const shipHitbox = {
@@ -731,6 +795,36 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
     }
 
+    // Montañas de fondo (2 capas, sin colisión) para dar profundidad a la escena
+    function drawBackgroundMountains() {
+      const baseY = MAPA_H - 203;
+      const nightish = levelDef.timeOfDay === 'night' || levelDef.timeOfDay === 'storm';
+      ctx.save();
+      // Capa lejana (más tenue, se mueve más lento que la cámara = se ve más al fondo)
+      bgFarMountains.forEach(m => {
+        const px = m.x + G.camX * (1 - 0.22);
+        ctx.fillStyle = nightish ? 'rgba(30,41,59,0.45)' : 'rgba(100,116,139,0.35)';
+        ctx.beginPath();
+        ctx.moveTo(px - m.w / 2, baseY); ctx.lineTo(px, baseY - m.h); ctx.lineTo(px + m.w / 2, baseY);
+        ctx.closePath(); ctx.fill();
+      });
+      // Capa media (un poco más marcada)
+      bgMidMountains.forEach(m => {
+        const px = m.x + G.camX * (1 - 0.48);
+        ctx.fillStyle = nightish ? 'rgba(15,23,42,0.6)' : 'rgba(71,85,105,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(px - m.w / 2, baseY); ctx.lineTo(px, baseY - m.h); ctx.lineTo(px + m.w / 2, baseY);
+        ctx.closePath(); ctx.fill();
+        if (m.h > 150) {
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.beginPath();
+          ctx.moveTo(px - 12, baseY - m.h + 20); ctx.lineTo(px, baseY - m.h); ctx.lineTo(px + 12, baseY - m.h + 20);
+          ctx.closePath(); ctx.fill();
+        }
+      });
+      ctx.restore();
+    }
+
     function drawMountains() {
       Composite.allBodies(world).forEach(b=>{
         if(!b.label.startsWith('mountain_'))return;
@@ -741,6 +835,14 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         grad.addColorStop(0,'#f8fafc'); grad.addColorStop(0.3,stoneColor); grad.addColorStop(1,'#374151');
         ctx.fillStyle=grad;
         ctx.beginPath(); ctx.moveTo(-md.w/2,0); ctx.lineTo(-md.w/3,-md.h*0.5); ctx.lineTo(0,-md.h); ctx.lineTo(md.w/3,-md.h*0.5); ctx.lineTo(md.w/2,0); ctx.closePath(); ctx.fill();
+        // Gorro de nieve en picos altos (más frecuente en niveles avanzados)
+        if (md.h > 170) {
+          ctx.fillStyle = 'rgba(248,250,252,0.9)';
+          ctx.beginPath();
+          ctx.moveTo(-md.w/3*0.4,-md.h*0.72); ctx.lineTo(0,-md.h); ctx.lineTo(md.w/3*0.4,-md.h*0.72);
+          ctx.lineTo(md.w/3*0.15,-md.h*0.68); ctx.lineTo(0,-md.h*0.8); ctx.lineTo(-md.w/3*0.15,-md.h*0.68);
+          ctx.closePath(); ctx.fill();
+        }
         if(hpRatio<1){
           ctx.strokeStyle='rgba(255,100,0,0.6)'; ctx.lineWidth=1.5;
           const cracks=Math.floor((1-hpRatio)*5)+1;
@@ -751,6 +853,140 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         }
         ctx.restore();
       });
+    }
+
+    // Fauna ambiental: aves/murciélagos cruzando el cielo, delfines saltando el mar.
+    // Puramente decorativo, pero varía según el clima/hora del nivel.
+    function updateWildlife() {
+      const w = G.wildlife;
+      w.birdTimer--;
+      if (w.birdTimer <= 0) {
+        w.birdTimer = 260 + Math.random() * 260;
+        const fromLeft = Math.random() > 0.5;
+        const flockSize = 2 + Math.floor(Math.random() * 3);
+        const baseY = 40 + Math.random() * 90;
+        for (let i = 0; i < flockSize; i++) {
+          w.birds.push({
+            x: fromLeft ? -40 - i * 26 : MAPA_W + 40 + i * 26,
+            y: baseY + i * 10,
+            vx: fromLeft ? 1.6 + Math.random() * 0.5 : -(1.6 + Math.random() * 0.5),
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+      }
+      w.birds.forEach(b => { b.x += b.vx; });
+      w.birds = w.birds.filter(b => b.x > -80 && b.x < MAPA_W + 80);
+
+      // Delfines: solo en mares tranquilos (no en jefes ni tormenta)
+      if (!levelDef.boss && levelDef.timeOfDay !== 'storm') {
+        w.dolphinTimer--;
+        if (w.dolphinTimer <= 0) {
+          w.dolphinTimer = 220 + Math.random() * 300;
+          const fromLeft = Math.random() > 0.5;
+          w.dolphins.push({
+            x0: fromLeft ? -60 : MAPA_W + 60,
+            vx: fromLeft ? 4.5 : -4.5,
+            t: 0,
+          });
+        }
+      }
+      w.dolphins.forEach(d => { d.t += 0.018; });
+      w.dolphins = w.dolphins.filter(d => d.t < 1);
+    }
+
+    function drawWildlife(t2) {
+      const nightish = levelDef.timeOfDay === 'night' || levelDef.timeOfDay === 'storm';
+      G.wildlife.birds.forEach(b => {
+        const flap = Math.sin(t2 * 0.02 + b.phase) * 6;
+        ctx.strokeStyle = nightish ? 'rgba(15,15,25,0.75)' : 'rgba(30,30,35,0.55)';
+        ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(b.x - 8, b.y);
+        ctx.quadraticCurveTo(b.x - 4, b.y - flap, b.x, b.y);
+        ctx.quadraticCurveTo(b.x + 4, b.y - flap, b.x + 8, b.y);
+        ctx.stroke();
+      });
+      const seaY = MAPA_H - 203;
+      G.wildlife.dolphins.forEach(d => {
+        const arcH = 55;
+        const dx = d.x0 + d.vx * (d.t * 130);
+        const dy = seaY - Math.sin(d.t * Math.PI) * arcH;
+        if (d.t > 0.02 && d.t < 0.08) addFX(dx, seaY, 'splash');
+        if (d.t > 0.92 && d.t < 0.98) addFX(dx, seaY, 'splash');
+        const rot = Math.cos(d.t * Math.PI) * 0.6 * (d.vx > 0 ? 1 : -1);
+        ctx.save(); ctx.translate(dx, dy); ctx.rotate(rot);
+        if (d.vx < 0) ctx.scale(-1, 1);
+        ctx.fillStyle = '#64748b';
+        ctx.beginPath(); ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-2, -6); ctx.lineTo(3, -17); ctx.lineTo(8, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-30, -5); ctx.lineTo(-30, 5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // ---- MEGALODÓN (evento sorpresa tras muchos intentos sin ganar) ----
+    function drawMegalodon(t2) {
+      const mg = G.megalodon;
+      if (!mg.active) return;
+      const seaY = MAPA_H - 203;
+      const cx = G.shipPos.x + 60;
+      let riseY;
+      if (mg.phase === 'rising') riseY = seaY + 260 * (1 - mg.phaseT);
+      else if (mg.phase === 'bite') riseY = seaY - 40;
+      else riseY = seaY + 320 * mg.phaseT; // sink
+
+      ctx.save();
+      ctx.translate(cx, riseY);
+      const mouthOpen = mg.phase === 'bite' ? Math.min(1, mg.phaseT * 2.2) : 0.15;
+
+      // Sombra/ondas en el agua
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(0, 40, 180, 30, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Cuerpo
+      const bodyGrad = ctx.createLinearGradient(0, -120, 0, 40);
+      bodyGrad.addColorStop(0, '#334155'); bodyGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.moveTo(-190, 20);
+      ctx.quadraticCurveTo(-120, -140, 0, -150);
+      ctx.quadraticCurveTo(120, -140, 170, 10);
+      ctx.quadraticCurveTo(60, 40, 0, 30);
+      ctx.quadraticCurveTo(-90, 45, -190, 20);
+      ctx.closePath(); ctx.fill();
+
+      // Aleta dorsal
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.moveTo(-20, -140); ctx.lineTo(10, -230); ctx.lineTo(40, -135); ctx.closePath(); ctx.fill();
+
+      // Ojo
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(-120, -95, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(-120, -95, 4, 0, Math.PI * 2); ctx.fill();
+
+      // Boca abierta con dientes (se abre en la fase "bite")
+      ctx.save();
+      ctx.translate(-40, -70);
+      ctx.rotate(-0.15);
+      const jaw = mouthOpen * 90;
+      ctx.fillStyle = '#450a0a';
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(160, -10); ctx.lineTo(150, jaw + 20); ctx.lineTo(10, jaw); ctx.closePath();
+      ctx.fill();
+      // dientes arriba/abajo
+      ctx.fillStyle = '#f8fafc';
+      for (let i = 0; i < 8; i++) {
+        const tx = 15 + i * 17;
+        ctx.beginPath(); ctx.moveTo(tx, -6); ctx.lineTo(tx + 6, -6); ctx.lineTo(tx + 3, 8); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(tx, jaw + 14); ctx.lineTo(tx + 6, jaw + 14); ctx.lineTo(tx + 3, jaw); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.restore();
+
+      // Salpicaduras al emerger/hundirse
+      if (mg.phase === 'rising' && Math.random() < 0.4) addFX(cx + (Math.random()-0.5)*150, seaY, 'splash');
+      if (mg.phase === 'sink' && Math.random() < 0.5) addFX(cx + (Math.random()-0.5)*150, seaY, 'splash');
     }
 
     function drawPortals(t2) {
@@ -892,7 +1128,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       ctx.font='bold 54px Georgia, serif';
       ctx.fillStyle=G.won?'#fbbf24':'#f87171';
       ctx.shadowBlur=30; ctx.shadowColor=G.won?'#f59e0b':'#ef4444';
-      let msg=G.won?(levelDef.boss?'🏆 ¡JEFE DERROTADO!':'⚓ ¡VICTORIA!'):(levelDef.boss?'☠️ CAÍSTE ANTE EL JEFE':'☠️ ¡HUNDIDO!');
+      let msg=G.won?(levelDef.boss?'🏆 ¡JEFE DERROTADO!':'⚓ ¡VICTORIA!'):(G.megalodon.shipEaten?'🦈 ¡UN MEGALODÓN TE TRAGÓ!':levelDef.boss?'☠️ CAÍSTE ANTE EL JEFE':'☠️ ¡HUNDIDO!');
       ctx.fillText(msg,CANVAS_W/2,CANVAS_H/2-30);
       ctx.shadowBlur=0;
       if(G.won){
@@ -901,6 +1137,10 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         ctx.font='36px Arial';
         ctx.fillStyle='#fbbf24';
         ctx.fillText('★'.repeat(stars)+'☆'.repeat(3-stars),CANVAS_W/2,CANVAS_H/2+20);
+      }
+      if(G.megalodon.shipEaten){
+        ctx.font='14px Arial'; ctx.fillStyle='rgba(255,255,255,0.6)';
+        ctx.fillText('El mar a veces cobra sus propias deudas...',CANVAS_W/2,CANVAS_H/2+20);
       }
       ctx.font='15px Arial'; ctx.fillStyle='rgba(255,255,255,0.45)';
       ctx.fillText('Continuando...',CANVAS_W/2,CANVAS_H/2+70);
@@ -956,6 +1196,40 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function physicsUpdate(t2) {
+      if (G.startTime === null) G.startTime = t2;
+      const elapsed = t2 - G.startTime;
+      updateWildlife();
+
+      // ---- MEGALODÓN: se activa una sola vez por partida si toca ----
+      const mg = G.megalodon;
+      if (mg.willAttack && !mg.triggered && !G.gameOver && elapsed > mg.attackAt) {
+        mg.triggered = true; mg.active = true; mg.phase = 'rising'; mg.phaseT = 0;
+        G.cinematic = true; G.mouseDown = false; G.isDraggingShip = false;
+        audio.playSFX('splash');
+      }
+      if (mg.active) {
+        if (mg.phase === 'rising') {
+          mg.phaseT += 1 / 50;
+          G.shake = Math.max(G.shake, mg.phaseT * 7);
+          if (mg.phaseT >= 1) { mg.phase = 'bite'; mg.phaseT = 0; }
+        } else if (mg.phase === 'bite') {
+          if (mg.phaseT === 0) { audio.playSFX('explode'); mg.shipEaten = true; }
+          mg.phaseT += 1 / 40;
+          G.shake = Math.max(G.shake, 16);
+          if (mg.phaseT >= 1) { mg.phase = 'sink'; mg.phaseT = 0; }
+        } else if (mg.phase === 'sink') {
+          mg.phaseT += 1 / 55;
+          if (mg.phaseT >= 1) {
+            mg.active = false;
+            if (!G.gameOver) {
+              G.gameOver = true; G.won = false; G.cinematic = false;
+              setHudState(s => ({ ...s, gameOver: true, won: false }));
+              setTimeout(() => onLevelFail(), 900);
+            }
+          }
+        }
+      }
+
       if (G.turno === 'jugador' && !G.gameOver && !G.isDraggingShip) {
         let dx = 0, dy = 0;
         const speed = 7;
@@ -1049,7 +1323,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       ctx.translate(-G.camX,-G.camY);
 
       drawSky(timestamp);
+      drawBackgroundMountains();
       drawOcean(timestamp);
+      drawWildlife(timestamp);
       drawMountains();
 
       if(G.projTrailPoints.length>1){
@@ -1058,7 +1334,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         ctx.stroke(); ctx.globalAlpha=1;
       }
 
-      drawShip(ctx, G.shipPos.x, G.shipPos.y, false, shipSkin, timestamp, imgPlayerRef.current, imgEnemyRef.current);
+      if (!G.megalodon.shipEaten) {
+        drawShip(ctx, G.shipPos.x, G.shipPos.y, false, shipSkin, timestamp, imgPlayerRef.current, imgEnemyRef.current);
+      }
       
       if(levelDef.boss){
         drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp);
@@ -1071,7 +1349,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
       const bob1=Math.sin(timestamp*0.003+G.shipPos.x*0.01)*4;
       const bob2=Math.sin(timestamp*0.003+G.cpuShipPos.x*0.01)*4;
-      drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
+      if (!G.megalodon.shipEaten) drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
       if(!levelDef.boss||levelDef.boss.type!=='FORTRESS')
         drawCannon(ctx, pivC.x, pivC.y+bob2, G.angC, 'iron');
 
@@ -1079,6 +1357,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       drawSkullMinions(timestamp);
       drawTrajectoryGuide();
       drawProjectiles(timestamp);
+      drawMegalodon(timestamp);
       drawFX();
 
       ctx.restore();
