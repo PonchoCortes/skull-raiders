@@ -460,9 +460,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
     // Monos repartidos en cubierta, siguiendo apenas la curva del casco
     const playerDeckPositions = [
-      { x: -58, y: -8 },  // Atrás
-      { x: 8,   y: 4 },   // Centro
-      { x: 74,  y: -10 }  // Adelante
+      { x: -58, y: -14 }, // Atrás
+      { x: 8,   y: -2 },  // Centro
+      { x: 74,  y: -16 }  // Adelante
     ];
 
     for (let i = 0; i < totalSkulls; i++) {
@@ -511,6 +511,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       isDraggingShip: false,
       // IA: la CPU va corrigiendo su puntería según qué tan lejos cayeron sus tiros anteriores
       cpuAimBias: { x: 0, y: 0 },
+      // Cuenta los disparos del jugador que NO le pegaron a ningún enemigo
+      // (se usa para poder probar el megalodón rápido, ver nota más abajo)
+      playerMisses: 0,
       // Evento sorpresa del megalodón
       megalodon: {
         active: false,
@@ -531,7 +534,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     };
     gameRef.current = G;
 
-    const pivJ = { x: G.shipPos.x + 130, y: G.shipPos.y - 40 };
+    const pivJ = { x: G.shipPos.x + 130, y: G.shipPos.y - 8 };
     const pivC = { x: G.cpuShipPos.x - 130, y: G.cpuShipPos.y - 40 };
 
     function addFX(x, y, type, extra={}) { G.fx.push({x,y,type,life:1,...extra}); }
@@ -592,8 +595,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       baseVy += G.cpuAimBias.y;
 
       const acc=levelDef.cpuAccuracy||0.5;
-      let scatter=(1-acc)*8;
-      if(levelDef.n>=15)scatter*=0.25;
+      let scatter=(1-acc)*5.5;
+      if(levelDef.n>=15)scatter*=0.15;
+      else if(levelDef.n>=6)scatter*=0.55;
       const b=Bodies.circle(pivC.x,pivC.y,11,{label:'proyectil_compu',density:0.05,frictionAir:0.005});
       b.bando='compu'; b.targetPos={x:targetX,y:targetY}; Composite.add(world,b);
       Body.setVelocity(b,{x:baseVx+(Math.random()-0.5)*scatter,y:baseVy+(Math.random()-0.5)*scatter});
@@ -630,8 +634,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     function aprenderDeTiro(bala) {
       const errX = bala.targetPos.x - bala.position.x;
       const errY = bala.targetPos.y - bala.position.y;
-      G.cpuAimBias.x = Math.max(-40, Math.min(40, G.cpuAimBias.x + errX * 0.12));
-      G.cpuAimBias.y = Math.max(-30, Math.min(30, G.cpuAimBias.y + errY * 0.12));
+      G.cpuAimBias.x = Math.max(-50, Math.min(50, G.cpuAimBias.x + errX * 0.2));
+      G.cpuAimBias.y = Math.max(-35, Math.min(35, G.cpuAimBias.y + errY * 0.2));
     }
 
     Events.on(engine, 'collisionStart', ev => {
@@ -664,6 +668,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           addFX(bala.position.x,bala.position.y,'rock_hit');
           if(mtn.hp<=0){audio.playSFX('explode');addFX(mtn.position.x,mtn.position.y,'mountain_destroy');if(!G.cuerposPorBorrar.includes(mtn))G.cuerposPorBorrar.push(mtn);}
           if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
+          if(bala.bando==='jugador') G.playerMisses++;
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
           return;
         }
@@ -673,6 +678,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           // CAMBIO: Splash del agua sube 3 píxeles (de MAPA_H-180 a MAPA_H-183)
           addFX(bala.position.x,MAPA_H-183,'splash');
           if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
+          if(bala.bando==='jugador') G.playerMisses++;
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
         }
 
@@ -773,7 +779,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         });
         
         pivJ.x = G.shipPos.x + 130;
-        pivJ.y = G.shipPos.y - 40;
+        pivJ.y = G.shipPos.y - 8;
         return;
       }
 
@@ -1305,7 +1311,12 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
 
       // ---- MEGALODÓN: se activa una sola vez por partida si toca ----
       const mg = G.megalodon;
-      if (mg.willAttack && !mg.triggered && !G.gameOver && elapsed > mg.attackAt) {
+      // ⚠️ TEMPORAL (pedido para probarlo): también se activa apenas el jugador
+      // falla su 2do disparo, sin importar la racha de intentos. Cuando ya lo
+      // hayan visto, borra esta línea de "pruebaRapida" y el "||" de abajo
+      // para dejar SOLO la mecánica normal (20-50 intentos sin ganar).
+      const pruebaRapida = G.playerMisses >= 2;
+      if (!mg.triggered && !G.gameOver && ((mg.willAttack && elapsed > mg.attackAt) || pruebaRapida)) {
         mg.triggered = true; mg.active = true; mg.phase = 'rising'; mg.phaseT = 0;
         G.cinematic = true; G.mouseDown = false; G.isDraggingShip = false;
         audio.playSFX('splash');
@@ -1357,7 +1368,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           });
           
           pivJ.x = G.shipPos.x + 130;
-          pivJ.y = G.shipPos.y - 40;
+          pivJ.y = G.shipPos.y - 8;
         }
       }
 
