@@ -241,7 +241,7 @@ function drawShip(ctx, x, y, enemy, skinId, t, playerImg, enemyImg) {
 
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); 
-  ctx.ellipse(0, 60, 170, 25, 0, 0, Math.PI * 2); 
+  ctx.ellipse(0, 68, 170, 25, 0, 0, Math.PI * 2); 
   ctx.fill();
 
   const img = enemy ? enemyImg : playerImg;
@@ -458,11 +458,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       return Bodies.circle(x, y, 14, { isStatic:false, isSensor:true, label, frictionAir:0.1, restitution:0.4 });
     }
 
-    // Monos 3 píxeles hacia atrás (-X) y 6 píxeles hacia arriba (-Y)
+    // Monos 3 píxeles hacia atrás (-X) y unos píxeles más arriba (-Y)
     const playerDeckPositions = [
-      { x: -53, y: -21 }, // Atrás
-      { x: 12,  y: 14 },  // Centro
-      { x: 77,  y: -1 }   // Adelante
+      { x: -53, y: -29 }, // Atrás
+      { x: 12,  y: 6 },  // Centro
+      { x: 77,  y: -9 }   // Adelante
     ];
 
     for (let i = 0; i < totalSkulls; i++) {
@@ -950,10 +950,37 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
             x0: fromLeft ? -60 : MAPA_W + 60,
             vx: fromLeft ? 4.5 : -4.5,
             t: 0,
+            hit: false,
           });
         }
       }
-      w.dolphins.forEach(d => { d.t += 0.018; });
+
+      // Los delfines en el aire son un estorbo real: si una bala los toca,
+      // se desvía (como si rebotara), igual que con las montañas.
+      const seaY = MAPA_H - 203;
+      const projs = Composite.allBodies(world).filter(b =>
+        b.label === 'proyectil_jugador' || b.label === 'proyectil_compu' || b.label === 'clon');
+
+      w.dolphins.forEach(d => {
+        d.t += 0.018;
+        d.x = d.x0 + d.vx * (d.t * 130);
+        d.y = seaY - Math.sin(d.t * Math.PI) * 55;
+
+        if (!d.hit && d.t > 0.15 && d.t < 0.85) {
+          for (const p of projs) {
+            const dx = p.position.x - d.x, dy = p.position.y - d.y;
+            if (dx * dx + dy * dy < 32 * 32) {
+              d.hit = true;
+              const vel = p.velocity;
+              Body.setVelocity(p, { x: vel.x * 0.35 + (Math.random() - 0.5) * 6, y: -Math.abs(vel.y) * 0.75 - 4 });
+              audio.playSFX('hit');
+              addFX(d.x, d.y, 'dolphin_bump');
+              G.shake = Math.max(G.shake, 6);
+              break;
+            }
+          }
+        }
+      });
       w.dolphins = w.dolphins.filter(d => d.t < 1);
     }
 
@@ -971,15 +998,13 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       });
       const seaY = MAPA_H - 203;
       G.wildlife.dolphins.forEach(d => {
-        const arcH = 55;
-        const dx = d.x0 + d.vx * (d.t * 130);
-        const dy = seaY - Math.sin(d.t * Math.PI) * arcH;
+        const dx = d.x, dy = d.y;
         if (d.t > 0.02 && d.t < 0.08) addFX(dx, seaY, 'splash');
         if (d.t > 0.92 && d.t < 0.98) addFX(dx, seaY, 'splash');
         const rot = Math.cos(d.t * Math.PI) * 0.6 * (d.vx > 0 ? 1 : -1);
         ctx.save(); ctx.translate(dx, dy); ctx.rotate(rot);
         if (d.vx < 0) ctx.scale(-1, 1);
-        ctx.fillStyle = '#64748b';
+        ctx.fillStyle = d.hit ? '#94a3b8' : '#64748b';
         ctx.beginPath(); ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.moveTo(-2, -6); ctx.lineTo(3, -17); ctx.lineTo(8, -6); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-30, -5); ctx.lineTo(-30, 5); ctx.closePath(); ctx.fill();
@@ -1178,6 +1203,13 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         if(f.type==='portal_burst'){
           const col=f.color||'#38bdf8';
           for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2+f.life,d=35*(1-f.life);ctx.fillStyle=col+Math.floor(f.life*255).toString(16).padStart(2,'0');ctx.beginPath();ctx.arc(f.x+Math.cos(a)*d,f.y+Math.sin(a)*d,4,0,Math.PI*2);ctx.fill();}
+        }
+        if(f.type==='dolphin_bump'){
+          const r=26*(1-f.life);
+          ctx.strokeStyle='rgba(148,163,184,0.9)'; ctx.lineWidth=2.5;
+          ctx.beginPath(); ctx.arc(f.x,f.y,r,0,Math.PI*2); ctx.stroke();
+          ctx.font=`bold ${14+10*f.life}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillStyle='#e2e8f0'; ctx.fillText('¡BOING!', f.x, f.y-r-6);
         }
         ctx.restore();
       });
@@ -1424,11 +1456,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       // Piratas de la tripulación parados en cubierta (el bueno y el malo)
       if (!G.megalodon.shipEaten) {
         const pAnim = G.charAnim.player;
-        drawCharacter(ctx, G.shipPos.x - 45, G.shipPos.y - 95 + bob1, false, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
+        drawCharacter(ctx, G.shipPos.x - 85, G.shipPos.y - 45 + bob1, true, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
       }
       if (!levelDef.boss) {
         const eAnim = G.charAnim.enemy;
-        drawCharacter(ctx, G.cpuShipPos.x + 45, G.cpuShipPos.y - 95 + bob2, true, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
+        drawCharacter(ctx, G.cpuShipPos.x + 85, G.cpuShipPos.y - 45 + bob2, false, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
       }
 
       if (!G.megalodon.shipEaten) drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
