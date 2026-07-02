@@ -190,6 +190,16 @@ function drawSkinAccessory(ctx, skinId, t, dead) {
 }
 
 // ---- FUNCIÓN DE DIBUJO DE BARCO ----
+// Mapa de imágenes por skin de barco. Los skins que todavía no tienen arte
+// propio caen de vuelta al barco clásico, así nada se rompe si falta un PNG.
+const SHIP_IMAGES = {
+  classic:  { player: '/images/ship_player.png',          enemy: '/images/ship_enemy.png' },
+  obsidian: { player: '/images/ship_player_obsidian.png',  enemy: '/images/ship_enemy_obsidian.png' },
+};
+function getShipImagePaths(skinId) {
+  return SHIP_IMAGES[skinId] || SHIP_IMAGES.classic;
+}
+
 function drawShip(ctx, x, y, enemy, skinId, t, playerImg, enemyImg) {
   ctx.save();
   const bob = Math.sin(t * 0.003 + x * 0.01) * 4;
@@ -331,9 +341,10 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   });
 
   useEffect(() => {
-    imgPlayerRef.current.src = '/images/ship_player.png';
-    imgEnemyRef.current.src = '/images/ship_enemy.png';
-  }, []);
+    const paths = getShipImagePaths(shipSkin);
+    imgPlayerRef.current.src = paths.player;
+    imgEnemyRef.current.src = paths.enemy;
+  }, [shipSkin]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -1055,7 +1066,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor='#000';
         ctx.fillText(levelDef.boss.name, G.cpuShipPos.x, G.cpuShipPos.y-185); ctx.restore();
       } else {
-        drawShip(ctx, G.cpuShipPos.x, G.cpuShipPos.y, true, 'classic', timestamp, imgPlayerRef.current, imgEnemyRef.current);
+        drawShip(ctx, G.cpuShipPos.x, G.cpuShipPos.y, true, shipSkin, timestamp, imgPlayerRef.current, imgEnemyRef.current);
       }
 
       const bob1=Math.sin(timestamp*0.003+G.shipPos.x*0.01)*4;
