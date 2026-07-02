@@ -458,11 +458,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       return Bodies.circle(x, y, 14, { isStatic:false, isSensor:true, label, frictionAir:0.1, restitution:0.4 });
     }
 
-    // Monos 3 píxeles hacia atrás (-X) y unos píxeles más arriba (-Y)
+    // Monos repartidos en cubierta, siguiendo apenas la curva del casco
     const playerDeckPositions = [
-      { x: -53, y: -25 }, // Atrás
-      { x: 12,  y: 10 },  // Centro
-      { x: 77,  y: -5 }   // Adelante
+      { x: -58, y: -8 },  // Atrás
+      { x: 8,   y: 4 },   // Centro
+      { x: 74,  y: -10 }  // Adelante
     ];
 
     for (let i = 0; i < totalSkulls; i++) {
@@ -1456,11 +1456,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       // Piratas de la tripulación parados en cubierta (el bueno y el malo)
       if (!G.megalodon.shipEaten) {
         const pAnim = G.charAnim.player;
-        drawCharacter(ctx, G.shipPos.x - 80, G.shipPos.y - 18 + bob1, true, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
+        drawCharacter(ctx, G.shipPos.x - 75, G.shipPos.y - 35 + bob1, true, pAnim.action, pAnim.actionStart, timestamp, imgCharPlayerRef.current);
       }
       if (!levelDef.boss) {
         const eAnim = G.charAnim.enemy;
-        drawCharacter(ctx, G.cpuShipPos.x + 80, G.cpuShipPos.y - 18 + bob2, false, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
+        drawCharacter(ctx, G.cpuShipPos.x + 75, G.cpuShipPos.y - 35 + bob2, false, eAnim.action, eAnim.actionStart, timestamp, imgCharEnemyRef.current);
       }
 
       if (!G.megalodon.shipEaten) drawCannon(ctx, pivJ.x, pivJ.y+bob1, G.angJ, cannonSkin);
