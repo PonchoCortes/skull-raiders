@@ -385,9 +385,28 @@ const DEFAULT_PALETTES = {
   FORTRESS:  { c1:'#1f2937', c2:'#111827', c3:'#030712', glow:'#4b5563', accent:'#ef4444' },
 };
 
-function drawBoss(ctx, bx, by, type, t, bossName) {
+function drawBoss(ctx, bx, by, type, t, bossName, sprites) {
   const pal = BOSS_PALETTES[bossName] || DEFAULT_PALETTES[type] || DEFAULT_PALETTES.KRAKEN;
   ctx.save(); ctx.translate(bx, by);
+
+  // El Leviatán del Abismo (nivel 30) usa arte real en vez de la silueta genérica
+  if (bossName === '🐉 LEVIATÁN DEL ABISMO' && sprites?.swimImg?.complete && sprites.swimImg.naturalWidth > 0) {
+    const attacking = sprites.attacking;
+    const img = (attacking && sprites.fireImg?.complete) ? sprites.fireImg : sprites.swimImg;
+    const bob = Math.sin(t * 0.0025) * 10;
+    const sway = Math.sin(t * 0.0018) * 0.025;
+    const w = 480, h = w * (img.naturalHeight / img.naturalWidth);
+    ctx.save();
+    ctx.translate(0, bob - 60);
+    ctx.rotate(sway);
+    ctx.shadowBlur = 25; ctx.shadowColor = '#0ea5e9';
+    // La imagen mira a la izquierda, hay que voltearla para que mire al jugador
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    ctx.restore();
+    return;
+  }
 
   if (type === 'KRAKEN') {
     ctx.shadowBlur=20; ctx.shadowColor=pal.glow;
@@ -520,6 +539,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const imgMinionHurtRef = useRef(new Image());
   const imgAllyMinionCombatRef = useRef(new Image());
   const imgAllyMinionHurtRef = useRef(new Image());
+  const imgLeviathanSwimRef = useRef(new Image());
+  const imgLeviathanFireRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
@@ -551,6 +572,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     imgMinionHurtRef.current.src = '/images/enemy_minion_hurt.png';
     imgAllyMinionCombatRef.current.src = '/images/ally_minion_combat.png';
     imgAllyMinionHurtRef.current.src = '/images/ally_minion_hurt.png';
+    imgLeviathanSwimRef.current.src = '/images/leviathan_swim.png';
+    imgLeviathanFireRef.current.src = '/images/leviathan_fire.png';
   }, []);
 
   useEffect(() => {
@@ -1749,7 +1772,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
       
       if(levelDef.boss){
-        drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp, levelDef.boss.name);
+        drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp, levelDef.boss.name, {
+          swimImg: imgLeviathanSwimRef.current,
+          fireImg: imgLeviathanFireRef.current,
+          attacking: G.charAnim.enemy.action === 'attack',
+        });
         ctx.save(); ctx.font='bold 22px Georgia,serif'; ctx.fillStyle='#ef4444';
         ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor='#000';
         ctx.fillText(levelDef.boss.name, G.cpuShipPos.x, G.cpuShipPos.y-185); ctx.restore();
