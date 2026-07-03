@@ -136,11 +136,11 @@ export default function Game() {
         onClick={toggleFullscreen}
         title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
         style={{
-          position: 'fixed', top: 10, right: 10, zIndex: 50,
-          width: 38, height: 38, borderRadius: '50%',
-          background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)',
-          color: '#e2e8f0', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', backdropFilter: 'blur(6px)',
+          position: 'fixed', bottom: 10, right: 10, zIndex: 50,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(15,23,42,0.7)', border: '1px solid rgba(255,255,255,0.15)',
+          color: '#e2e8f0', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', backdropFilter: 'blur(6px)', opacity: 0.7,
         }}>
         {isFullscreen ? '⤡' : '⤢'}
       </button>

@@ -1801,7 +1801,14 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         });
         ctx.save(); ctx.font='bold 22px Georgia,serif'; ctx.fillStyle='#ef4444';
         ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor='#000';
-        ctx.fillText(levelDef.boss.name, G.cpuShipPos.x, G.cpuShipPos.y-185); ctx.restore();
+        // Que el nombre nunca se salga del área visible de la cámara,
+        // sin importar dónde esté parado el jefe o cuánto haga zoom la cámara.
+        const nameW = ctx.measureText(levelDef.boss.name).width;
+        const viewW = CANVAS_W / (G.camZoom || 1);
+        const minX = G.camX + nameW / 2 + 12;
+        const maxX = G.camX + viewW - nameW / 2 - 12;
+        const nameX = Math.max(minX, Math.min(maxX, G.cpuShipPos.x));
+        ctx.fillText(levelDef.boss.name, nameX, G.cpuShipPos.y-185); ctx.restore();
       } else {
         drawShip(ctx, G.cpuShipPos.x, G.cpuShipPos.y, true, shipSkin, timestamp, imgPlayerRef.current, imgEnemyRef.current);
       }
