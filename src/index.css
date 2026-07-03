@@ -51,6 +51,13 @@ body {
 
 canvas { display: block; }
 
+/* En horizontal y con poca altura (celular acostado), se achican los
+   márgenes para aprovechar toda la pantalla posible */
+.game-root { padding: 12px 8px; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .game-root { padding: 2px !important; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }

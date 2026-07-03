@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import MainMenu from './MainMenu';
 import Shop from './Shop';
 import Settings from './Settings';
@@ -15,6 +15,29 @@ export default function Game() {
   const [progress, setProgress] = useState(loadProgress);
   const [currentLevel, setCurrentLevel] = useState(null);
   const [levelResult, setLevelResult] = useState(null); // { won, stars }
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      const el = rootRef.current || document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (req) req.call(el).catch(() => {});
+      // En celular, de paso intenta fijar la orientación horizontal si el navegador lo permite
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (exit) exit.call(document).catch(() => {});
+    }
+  }
 
   // Nivel hasta el que se puede jugar (100 si el modo prueba esta activo)
   const unlockedLevel = getUnlockedLevel(storeData, progress);
@@ -104,12 +127,23 @@ export default function Game() {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    padding: '12px 8px',
     overflowX: 'hidden',
   };
 
   return (
-    <div style={bgStyle}>
+    <div ref={rootRef} className="game-root" style={bgStyle}>
+      <button
+        onClick={toggleFullscreen}
+        title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        style={{
+          position: 'fixed', top: 10, right: 10, zIndex: 50,
+          width: 38, height: 38, borderRadius: '50%',
+          background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)',
+          color: '#e2e8f0', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', backdropFilter: 'blur(6px)',
+        }}>
+        {isFullscreen ? '⤡' : '⤢'}
+      </button>
       {screen === 'menu' && (
         <MainMenu
           onPlay={handlePlay}
