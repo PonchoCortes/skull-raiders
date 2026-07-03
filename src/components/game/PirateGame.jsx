@@ -14,22 +14,22 @@ const SKY_PALETTES = {
 };
 
 // ---- SKULL MINION DRAWING ----
-// ---- MINION ENEMIGO CON SPRITE REAL (formato LPC: celdas de 64x64) ----
-// Filas = dirección (0 arriba, 1 izquierda, 2 abajo, 3 derecha). Usamos la
-// fila "izquierda" porque este pirata está parado mirando hacia el jugador.
+// ---- MINIONS CON SPRITE REAL (formato LPC: celdas de 64x64) ----
+// Filas = dirección (0 arriba, 1 izquierda, 2 abajo, 3 derecha).
 const LPC_CELL = 64;
 const LPC_ROW_LEFT = 1;
+const LPC_ROW_RIGHT = 3;
 
-function drawEnemyMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, walking, idleImg, walkImg, hurtImg) {
+function drawMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, facingRight, idleImg, walkImg, hurtImg, size = 70) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
 
   // Sombra
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 22, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
 
-  const size = 58; // tamaño en pantalla (el sprite original es de 64px por celda)
+  const row = facingRight ? LPC_ROW_RIGHT : LPC_ROW_LEFT;
   const drawX = -size / 2, drawY = -size / 2 - 6;
 
   if (!alive) {
@@ -46,12 +46,9 @@ function drawEnemyMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, walking, 
     const progress = 1 - Math.max(0, (hurtUntil - t2) / 350);
     const hf = Math.min(2, Math.floor(progress * 3));
     ctx.drawImage(hurtImg, hf * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
-  } else if (walking && walkImg && walkImg.complete && walkImg.naturalWidth > 0) {
-    const frame = Math.floor(t2 / 90) % 9;
-    ctx.drawImage(walkImg, frame * LPC_CELL, LPC_ROW_LEFT * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
   } else if (idleImg && idleImg.complete && idleImg.naturalWidth > 0) {
     const frame = Math.floor(t2 / 480) % 2;
-    ctx.drawImage(idleImg, frame * LPC_CELL, LPC_ROW_LEFT * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+    ctx.drawImage(idleImg, frame * LPC_CELL, row * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
   }
   ctx.restore();
 }
@@ -417,6 +414,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const imgMinionIdleRef = useRef(new Image());
   const imgMinionWalkRef = useRef(new Image());
   const imgMinionHurtRef = useRef(new Image());
+  const imgAllyMinionIdleRef = useRef(new Image());
+  const imgAllyMinionHurtRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
@@ -447,6 +446,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     imgMinionIdleRef.current.src = '/images/enemy_minion_idle.png';
     imgMinionWalkRef.current.src = '/images/enemy_minion_walk.png';
     imgMinionHurtRef.current.src = '/images/enemy_minion_hurt.png';
+    imgAllyMinionIdleRef.current.src = '/images/ally_minion_idle.png';
+    imgAllyMinionHurtRef.current.src = '/images/ally_minion_hurt.png';
   }, []);
 
   useEffect(() => {
@@ -1291,7 +1292,10 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         if (!r.ok) return;
         const pos = skull.body.position;
         const angle = skull.dead ? skull.body.angle : 0;
-        drawSkullMinion(ctx, pos.x, pos.y, angle, skull.body.velocity.x, skull.body.velocity.y, skull.hp, skull.maxHp, skullSkin, t2, !skull.dead);
+        drawMinionSprite(
+          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull.hurtUntil, true,
+          imgAllyMinionIdleRef.current, null, imgAllyMinionHurtRef.current, 70
+        );
       });
 
       skullsEnemigos.forEach(skull => {
@@ -1299,9 +1303,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         if (!r.ok) return;
         const pos = skull.body.position;
         const angle = skull.dead ? skull.body.angle : 0;
-        drawEnemyMinionSprite(
+        drawMinionSprite(
           ctx, pos.x, pos.y, angle, t2, !skull.dead, skull.hurtUntil, false,
-          imgMinionIdleRef.current, imgMinionWalkRef.current, imgMinionHurtRef.current
+          imgMinionIdleRef.current, imgMinionWalkRef.current, imgMinionHurtRef.current, 70
         );
       });
     }
