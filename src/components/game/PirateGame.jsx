@@ -14,6 +14,48 @@ const SKY_PALETTES = {
 };
 
 // ---- SKULL MINION DRAWING ----
+// ---- MINION ENEMIGO CON SPRITE REAL (formato LPC: celdas de 64x64) ----
+// Filas = dirección (0 arriba, 1 izquierda, 2 abajo, 3 derecha). Usamos la
+// fila "izquierda" porque este pirata está parado mirando hacia el jugador.
+const LPC_CELL = 64;
+const LPC_ROW_LEFT = 1;
+
+function drawEnemyMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, walking, idleImg, walkImg, hurtImg) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Sombra
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+  const size = 58; // tamaño en pantalla (el sprite original es de 64px por celda)
+  const drawX = -size / 2, drawY = -size / 2 - 6;
+
+  if (!alive) {
+    // Caído: último frame de la animación de golpe, como si quedara tendido
+    if (hurtImg && hurtImg.complete && hurtImg.naturalWidth > 0) {
+      ctx.drawImage(hurtImg, 5 * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+    }
+    ctx.restore();
+    return;
+  }
+
+  const hurt = hurtUntil && t2 < hurtUntil;
+  if (hurt && hurtImg && hurtImg.complete && hurtImg.naturalWidth > 0) {
+    const progress = 1 - Math.max(0, (hurtUntil - t2) / 350);
+    const hf = Math.min(2, Math.floor(progress * 3));
+    ctx.drawImage(hurtImg, hf * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+  } else if (walking && walkImg && walkImg.complete && walkImg.naturalWidth > 0) {
+    const frame = Math.floor(t2 / 90) % 9;
+    ctx.drawImage(walkImg, frame * LPC_CELL, LPC_ROW_LEFT * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+  } else if (idleImg && idleImg.complete && idleImg.naturalWidth > 0) {
+    const frame = Math.floor(t2 / 480) % 2;
+    ctx.drawImage(idleImg, frame * LPC_CELL, LPC_ROW_LEFT * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+  }
+  ctx.restore();
+}
+
 function drawSkullMinion(ctx, x, y, angle, vx, vy, hp, maxHp, skinId, t, alive) {
   ctx.save();
   ctx.translate(x, y);
@@ -372,6 +414,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const imgEnemyRef = useRef(new Image());
   const imgCharPlayerRef = useRef(new Image());
   const imgCharEnemyRef = useRef(new Image());
+  const imgMinionIdleRef = useRef(new Image());
+  const imgMinionWalkRef = useRef(new Image());
+  const imgMinionHurtRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
@@ -399,6 +444,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   useEffect(() => {
     imgCharPlayerRef.current.src = '/images/pirate_player_sheet.png';
     imgCharEnemyRef.current.src = '/images/pirate_enemy_sheet.png';
+    imgMinionIdleRef.current.src = '/images/enemy_minion_idle.png';
+    imgMinionWalkRef.current.src = '/images/enemy_minion_walk.png';
+    imgMinionHurtRef.current.src = '/images/enemy_minion_hurt.png';
   }, []);
 
   useEffect(() => {
@@ -644,6 +692,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     function hitSkull(skullObj, bala, force=1) {
       if (skullObj.dead) return;
       skullObj.hp--;
+      skullObj.hurtUntil = G.t + 350;
       audio.playSFX('skull_hit');
       addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_impact', { color: bala.bando==='jugador'?'#f59e0b':'#ef4444' });
       // El personaje del bando golpeado reacciona con dolor
@@ -1218,28 +1267,41 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     }
 
     function drawSkullMinions(t2) {
-      [...skullsAliados, ...skullsEnemigos].forEach(skull => {
+      const updateSkull = (skull) => {
         const pos = skull.body.position;
-        
         if (!skull.dead) {
           const bobX = Math.sin(t2 * 0.003 + skull.baseX * 0.01) * 2;
           const bobY = Math.sin(t2 * 0.003 + skull.baseY * 0.01) * 4;
           Body.setPosition(skull.body, { x: skull.baseX + bobX, y: skull.baseY + bobY });
           Body.setVelocity(skull.body, { x: 0, y: 0 });
+          return { ok: true };
         } else {
           if (pos.y > MAPA_H + 100 || pos.x < -200 || pos.x > MAPA_W + 200) {
             if (Composite.allBodies(world).includes(skull.body)) {
               Composite.remove(world, skull.body);
             }
-            return; 
+            return { ok: false };
           }
+          return { ok: true };
         }
+      };
 
+      skullsAliados.forEach(skull => {
+        const r = updateSkull(skull);
+        if (!r.ok) return;
+        const pos = skull.body.position;
         const angle = skull.dead ? skull.body.angle : 0;
-        drawSkullMinion(
-          ctx, pos.x, pos.y, angle,
-          skull.body.velocity.x, skull.body.velocity.y,
-          skull.hp, skull.maxHp, skullSkin, t2, !skull.dead
+        drawSkullMinion(ctx, pos.x, pos.y, angle, skull.body.velocity.x, skull.body.velocity.y, skull.hp, skull.maxHp, skullSkin, t2, !skull.dead);
+      });
+
+      skullsEnemigos.forEach(skull => {
+        const r = updateSkull(skull);
+        if (!r.ok) return;
+        const pos = skull.body.position;
+        const angle = skull.dead ? skull.body.angle : 0;
+        drawEnemyMinionSprite(
+          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull.hurtUntil, false,
+          imgMinionIdleRef.current, imgMinionWalkRef.current, imgMinionHurtRef.current
         );
       });
     }
