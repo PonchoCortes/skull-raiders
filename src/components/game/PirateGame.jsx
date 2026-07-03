@@ -19,8 +19,28 @@ const SKY_PALETTES = {
 const LPC_CELL = 64;
 const LPC_ROW_LEFT = 1;
 const LPC_ROW_RIGHT = 3;
+const KNOCK_FALL_MS = 450, KNOCK_HOLD_MS = 350, KNOCK_RISE_MS = 450;
 
-function drawMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, facingRight, idleImg, walkImg, hurtImg, size = 70) {
+// Calcula en qué frame de "golpe" va un minion que fue golpeado pero sigue
+// vivo: cae (0→5), se queda tirado un momento, y se vuelve a levantar (5→0).
+// Devuelve null cuando ya terminó la secuencia (para volver al idle normal).
+function getKnockdownFrame(skull, t2) {
+  if (!skull.hurtState) return null;
+  const elapsed = t2 - skull.hurtStateStart;
+  if (elapsed < KNOCK_FALL_MS) {
+    return Math.min(5, Math.floor((elapsed / KNOCK_FALL_MS) * 6));
+  } else if (elapsed < KNOCK_FALL_MS + KNOCK_HOLD_MS) {
+    return 5;
+  } else if (elapsed < KNOCK_FALL_MS + KNOCK_HOLD_MS + KNOCK_RISE_MS) {
+    const re = elapsed - KNOCK_FALL_MS - KNOCK_HOLD_MS;
+    return Math.max(0, 5 - Math.floor((re / KNOCK_RISE_MS) * 6));
+  } else {
+    skull.hurtState = null;
+    return null;
+  }
+}
+
+function drawMinionSprite(ctx, x, y, angle, t2, alive, skull, facingRight, combatImg, hurtImg, size = 70) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -33,7 +53,7 @@ function drawMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, facingRight, i
   const drawX = -size / 2, drawY = -size / 2 - 6;
 
   if (!alive) {
-    // Caído: último frame de la animación de golpe, como si quedara tendido
+    // Muerto de verdad: último frame de la animación de golpe, tendido
     if (hurtImg && hurtImg.complete && hurtImg.naturalWidth > 0) {
       ctx.drawImage(hurtImg, 5 * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
     }
@@ -41,14 +61,14 @@ function drawMinionSprite(ctx, x, y, angle, t2, alive, hurtUntil, facingRight, i
     return;
   }
 
-  const hurt = hurtUntil && t2 < hurtUntil;
-  if (hurt && hurtImg && hurtImg.complete && hurtImg.naturalWidth > 0) {
-    const progress = 1 - Math.max(0, (hurtUntil - t2) / 350);
-    const hf = Math.min(2, Math.floor(progress * 3));
-    ctx.drawImage(hurtImg, hf * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
-  } else if (idleImg && idleImg.complete && idleImg.naturalWidth > 0) {
-    const frame = Math.floor(t2 / 480) % 2;
-    ctx.drawImage(idleImg, frame * LPC_CELL, row * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+  const knockFrame = getKnockdownFrame(skull, t2);
+  if (knockFrame !== null && hurtImg && hurtImg.complete && hurtImg.naturalWidth > 0) {
+    // Cayó por el golpe pero todavía tiene vida: se está levantando
+    ctx.drawImage(hurtImg, knockFrame * LPC_CELL, 0, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
+  } else if (combatImg && combatImg.complete && combatImg.naturalWidth > 0) {
+    // Postura de combate por defecto: espada lista, respirando
+    const frame = Math.floor(t2 / 420) % 2;
+    ctx.drawImage(combatImg, frame * LPC_CELL, row * LPC_CELL, LPC_CELL, LPC_CELL, drawX, drawY, size, size);
   }
   ctx.restore();
 }
@@ -411,10 +431,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const imgEnemyRef = useRef(new Image());
   const imgCharPlayerRef = useRef(new Image());
   const imgCharEnemyRef = useRef(new Image());
-  const imgMinionIdleRef = useRef(new Image());
-  const imgMinionWalkRef = useRef(new Image());
+  const imgMinionCombatRef = useRef(new Image());
   const imgMinionHurtRef = useRef(new Image());
-  const imgAllyMinionIdleRef = useRef(new Image());
+  const imgAllyMinionCombatRef = useRef(new Image());
   const imgAllyMinionHurtRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
@@ -443,10 +462,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   useEffect(() => {
     imgCharPlayerRef.current.src = '/images/pirate_player_sheet.png';
     imgCharEnemyRef.current.src = '/images/pirate_enemy_sheet.png';
-    imgMinionIdleRef.current.src = '/images/enemy_minion_idle.png';
-    imgMinionWalkRef.current.src = '/images/enemy_minion_walk.png';
+    imgMinionCombatRef.current.src = '/images/enemy_minion_combat.png';
     imgMinionHurtRef.current.src = '/images/enemy_minion_hurt.png';
-    imgAllyMinionIdleRef.current.src = '/images/ally_minion_idle.png';
+    imgAllyMinionCombatRef.current.src = '/images/ally_minion_combat.png';
     imgAllyMinionHurtRef.current.src = '/images/ally_minion_hurt.png';
   }, []);
 
@@ -693,7 +711,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     function hitSkull(skullObj, bala, force=1) {
       if (skullObj.dead) return;
       skullObj.hp--;
-      skullObj.hurtUntil = G.t + 350;
       audio.playSFX('skull_hit');
       addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_impact', { color: bala.bando==='jugador'?'#f59e0b':'#ef4444' });
       // El personaje del bando golpeado reacciona con dolor
@@ -702,8 +719,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       const vx = bala.velocity?.x || 0;
       const vy = bala.velocity?.y || 0;
       const mag = Math.sqrt(vx*vx+vy*vy)||1;
-      Body.setVelocity(skullObj.body, { x: (vx/mag)*12*force, y: (vy/mag)*8*force - 5 });
-      Body.setAngularVelocity(skullObj.body, (Math.random()-0.5)*0.4);
 
       if (skullObj.hp <= 0) {
         skullObj.dead = true;
@@ -711,6 +726,12 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         addFX(skullObj.body.position.x, skullObj.body.position.y, 'skull_death');
         Body.setVelocity(skullObj.body, { x: (vx/mag)*20, y: -15 });
         Body.setAngularVelocity(skullObj.body, (Math.random()-0.5)*1.2);
+      } else {
+        // Sigue con vida: se cae por el golpe y se vuelve a levantar solo
+        skullObj.hurtState = 'falling';
+        skullObj.hurtStateStart = G.t;
+        Body.setVelocity(skullObj.body, { x: (vx/mag)*12*force, y: (vy/mag)*8*force - 5 });
+        Body.setAngularVelocity(skullObj.body, (Math.random()-0.5)*0.4);
       }
     }
 
@@ -1293,8 +1314,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         const pos = skull.body.position;
         const angle = skull.dead ? skull.body.angle : 0;
         drawMinionSprite(
-          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull.hurtUntil, true,
-          imgAllyMinionIdleRef.current, null, imgAllyMinionHurtRef.current, 70
+          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull, true,
+          imgAllyMinionCombatRef.current, imgAllyMinionHurtRef.current, 70
         );
       });
 
@@ -1304,8 +1325,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         const pos = skull.body.position;
         const angle = skull.dead ? skull.body.angle : 0;
         drawMinionSprite(
-          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull.hurtUntil, false,
-          imgMinionIdleRef.current, imgMinionWalkRef.current, imgMinionHurtRef.current, 70
+          ctx, pos.x, pos.y, angle, t2, !skull.dead, skull, false,
+          imgMinionCombatRef.current, imgMinionHurtRef.current, 70
         );
       });
     }
