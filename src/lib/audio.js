@@ -178,7 +178,7 @@ class AudioManager {
   }
 
   // 🎵 Música chiptune procedural mejorada
-  playMusic(type) {
+  playMusic(type, seed = 0) {
     if (!this._initialized) return;
     this.stopMusic();
     this._resume();
@@ -190,30 +190,73 @@ class AudioManager {
       196, 0, 220, 246, 261, 0, 246, 0,
       220, 196, 174, 0, 196, 0, 220, 0,
     ];
-    const BATTLE_MELODY = [
-      146, 146, 165, 174, 196, 174, 165, 146,
-      130, 130, 146, 165, 146, 130, 110, 0,
-      146, 0, 196, 0, 174, 165, 146, 0,
-      130, 146, 165, 196, 174, 165, 146, 130,
+
+    // Varias melodías de batalla, una por cada par de Actos, para que la
+    // campaña no suene igual del nivel 1 al 100.
+    const BATTLE_MELODIES = [
+      [ // Acto I-II: aventura clásica
+        146, 146, 165, 174, 196, 174, 165, 146,
+        130, 130, 146, 165, 146, 130, 110, 0,
+        146, 0, 196, 0, 174, 165, 146, 0,
+        130, 146, 165, 196, 174, 165, 146, 130,
+      ],
+      [ // Acto III-IV: más tenso, aguas malditas
+        174, 0, 174, 165, 155, 0, 146, 0,
+        174, 0, 196, 0, 174, 155, 146, 0,
+        130, 130, 146, 155, 174, 0, 155, 146,
+        130, 0, 110, 0, 130, 146, 155, 0,
+      ],
+      [ // Acto V-VI: enérgico, imperio pirata
+        196, 196, 220, 246, 220, 196, 174, 0,
+        220, 220, 246, 261, 246, 220, 196, 0,
+        174, 196, 220, 246, 293, 246, 220, 196,
+        220, 0, 174, 0, 196, 220, 246, 0,
+      ],
+      [ // Acto VII-VIII: misterioso, mar del kraken / cielo
+        130, 0, 155, 0, 174, 0, 155, 130,
+        0, 146, 0, 174, 0, 196, 0, 174,
+        130, 155, 130, 0, 110, 0, 130, 0,
+        155, 174, 196, 174, 155, 130, 110, 0,
+      ],
+      [ // Acto IX-X: dimensión del caos / campaña final, más urgente
+        110, 110, 130, 110, 98, 98, 110, 0,
+        130, 130, 146, 130, 110, 0, 98, 0,
+        146, 146, 165, 146, 130, 130, 110, 0,
+        110, 98, 87, 0, 110, 130, 146, 0,
+      ],
     ];
-    const BOSS_MELODY = [
-      110, 0, 110, 123, 110, 0, 98, 0,
-      87, 0, 87, 110, 130, 0, 110, 0,
-      110, 0, 110, 130, 146, 0, 130, 110,
-      98, 87, 73, 0, 98, 0, 110, 0,
+
+    const BOSS_MELODIES = [
+      [ // Jefes Acto I-V
+        110, 0, 110, 123, 110, 0, 98, 0,
+        87, 0, 87, 110, 130, 0, 110, 0,
+        110, 0, 110, 130, 146, 0, 130, 110,
+        98, 87, 73, 0, 98, 0, 110, 0,
+      ],
+      [ // Jefes Acto VI-X, más grande y ominoso
+        87, 87, 98, 87, 73, 0, 87, 0,
+        98, 98, 110, 98, 87, 0, 73, 0,
+        65, 0, 87, 98, 110, 130, 110, 98,
+        87, 73, 65, 0, 87, 98, 65, 0,
+      ],
     ];
+
     const WIN_MELODY = [
       523, 659, 784, 659, 784, 1047, 0, 0,
     ];
 
-    const noteMap = {
-      menu: { notes: MENU_NOTES, tempo: 240, wave: 'sine', vol: 0.025 },
-      battle: { notes: BATTLE_MELODY, tempo: 190, wave: 'triangle', vol: 0.04 },
-      boss: { notes: BOSS_MELODY, tempo: 160, wave: 'sawtooth', vol: 0.045 },
-      win: { notes: WIN_MELODY, tempo: 130, wave: 'triangle', vol: 0.06 },
-    };
+    let notes, tempo, wave, vol;
+    if (type === 'menu') { notes = MENU_NOTES; tempo = 240; wave = 'sine'; vol = 0.025; }
+    else if (type === 'win') { notes = WIN_MELODY; tempo = 130; wave = 'triangle'; vol = 0.06; }
+    else if (type === 'boss') {
+      const variant = BOSS_MELODIES[seed % BOSS_MELODIES.length];
+      notes = variant; tempo = 155; wave = 'sawtooth'; vol = 0.045;
+    } else {
+      const variant = BATTLE_MELODIES[seed % BATTLE_MELODIES.length];
+      notes = variant; tempo = 190; wave = 'triangle'; vol = 0.04;
+    }
 
-    const cfg = noteMap[type] || noteMap.battle;
+    const cfg = { notes, tempo, wave, vol };
     let step = 0;
 
     const playNote = () => {

@@ -8,7 +8,10 @@ export function getLevel(n) {
   const timeOfDay = isBoss ? 'storm' : times[Math.floor((n-1)/10) % 10];
 
   let targets = Math.min(3 + Math.floor(n / 12), 8);
-  const cpuAccuracy = Math.min(0.30 + t * 0.67, 0.96);
+  // Los jefes apuntan mejor que un enemigo normal del mismo nivel — se sienten
+  // como un pelea de verdad, no solo "más piratas".
+  const baseAccuracy = Math.min(0.30 + t * 0.67, 0.96);
+  const cpuAccuracy = isBoss ? Math.min(baseAccuracy + 0.14, 0.98) : baseAccuracy;
   const gravityOptions = [1.1, 0.8, 1.4, 1.0, 1.6, 0.7];
   const gravity = gravityOptions[n % gravityOptions.length];
   const windPatterns = [0,0,0.3,-0.3,0.6,-0.6,0.2,-0.2,0,0.8];

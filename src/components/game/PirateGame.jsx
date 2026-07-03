@@ -363,60 +363,145 @@ function drawCannon(ctx, px, py, angle, skinId) {
 }
 
 // ---- BOSS DRAWING ----
-function drawBoss(ctx, bx, by, type, t) {
+// Cada jefe (aunque comparta "tipo" de silueta con otro) tiene su propia
+// paleta de colores y algún detalle extra, para que se vea acorde a su
+// nombre en vez de repetir el mismo dibujo genérico.
+const BOSS_PALETTES = {
+  '🦑 KRAKEN ANCESTRAL':        { c1:'#db2777', c2:'#4c1d95', c3:'#1e1b4b', glow:'#ec4899', accent:'#fbcfe8' },
+  '🔥 ESCILA DE MAGMA':         { c1:'#f97316', c2:'#7c2d12', c3:'#450a0a', glow:'#fb923c', accent:'#fde047', fx:'embers' },
+  '🔱 CTHULHU REY DEL CAOS':    { c1:'#7c3aed', c2:'#312e81', c3:'#020617', glow:'#a78bfa', accent:'#67e8f9', fx:'cosmic' },
+  '👻 EL HOLANDÉS ERRANTE':     { c1:'#065f46', c2:'#064e3b', c3:'#022c22', glow:'#10b981', accent:'#34d399' },
+  '🏴‍☠️ EL ARCA MALDITA':        { c1:'#7f1d1d', c2:'#450a0a', c3:'#1c0505', glow:'#ef4444', accent:'#fca5a5', fx:'blood' },
+  '🐉 LEVIATÁN DEL ABISMO':     { c1:'#1d4ed8', c2:'#1e40af', c3:'#172554', glow:'#3b82f6', accent:'#60a5fa' },
+  '⚡ JÖRMUNDGANDER':           { c1:'#0891b2', c2:'#134e4a', c3:'#042f2e', glow:'#22d3ee', accent:'#fde047', fx:'lightning' },
+  '💀 FORTALEZA CALAVERA':      { c1:'#1f2937', c2:'#111827', c3:'#030712', glow:'#4b5563', accent:'#ef4444' },
+  '🏰 BASTIÓN DE OBSIDIANA':    { c1:'#2e1065', c2:'#1e1033', c3:'#0f0521', glow:'#a855f7', accent:'#c084fc', fx:'crystals' },
+  '👑 SEÑOR DEL FIN DEL MUNDO': { c1:'#78350f', c2:'#292524', c3:'#0c0a09', glow:'#fbbf24', accent:'#fde047', fx:'crown' },
+};
+const DEFAULT_PALETTES = {
+  KRAKEN:    { c1:'#db2777', c2:'#4c1d95', c3:'#1e1b4b', glow:'#ec4899', accent:'#fbcfe8' },
+  GHOST:     { c1:'#065f46', c2:'#064e3b', c3:'#022c22', glow:'#10b981', accent:'#34d399' },
+  LEVIATHAN: { c1:'#1d4ed8', c2:'#1e40af', c3:'#172554', glow:'#3b82f6', accent:'#60a5fa' },
+  FORTRESS:  { c1:'#1f2937', c2:'#111827', c3:'#030712', glow:'#4b5563', accent:'#ef4444' },
+};
+
+function drawBoss(ctx, bx, by, type, t, bossName) {
+  const pal = BOSS_PALETTES[bossName] || DEFAULT_PALETTES[type] || DEFAULT_PALETTES.KRAKEN;
   ctx.save(); ctx.translate(bx, by);
+
   if (type === 'KRAKEN') {
-    ctx.shadowBlur=20; ctx.shadowColor='#ec4899';
+    ctx.shadowBlur=20; ctx.shadowColor=pal.glow;
     for (let i=0;i<5;i++) {
       ctx.save();
       const ox=-130+(i*65), wave=Math.sin(t*0.004+i*2)*25;
       ctx.translate(ox,40);
       const g=ctx.createLinearGradient(0,-180,0,0);
-      g.addColorStop(0,'#db2777'); g.addColorStop(0.5,'#4c1d95'); g.addColorStop(1,'#1e1b4b');
+      g.addColorStop(0,pal.c1); g.addColorStop(0.5,pal.c2); g.addColorStop(1,pal.c3);
       ctx.fillStyle=g;
       ctx.beginPath(); ctx.moveTo(-25,0);
       ctx.quadraticCurveTo(-15+wave,-90,-5+wave,-160);
       ctx.quadraticCurveTo(0+wave,-180,5+wave,-160);
       ctx.quadraticCurveTo(15+wave,-90,25,0); ctx.closePath(); ctx.fill();
-      ctx.fillStyle='#fbcfe8';
+      ctx.fillStyle=pal.accent;
       for(let j=0;j<5;j++){ctx.beginPath();ctx.arc(-10+wave*(j/5),-30-(j*28),5-(j*0.6),0,Math.PI*2);ctx.fill();}
       ctx.restore();
     }
+    if (pal.fx === 'embers') {
+      // Escila de Magma: brasas subiendo
+      for (let i=0;i<10;i++){
+        const ex = -140 + ((i*37 + t*0.05) % 280);
+        const ey = 20 - ((t*0.09 + i*40) % 220);
+        ctx.fillStyle = `rgba(251,146,60,${0.7 - (220-((t*0.09+i*40)%220))/220*0.7})`;
+        ctx.beginPath(); ctx.arc(ex,ey,2.5,0,Math.PI*2); ctx.fill();
+      }
+    } else if (pal.fx === 'cosmic') {
+      // Cthulhu: anillos cósmicos girando + ojos extra
+      ctx.strokeStyle = 'rgba(167,139,250,0.5)'; ctx.lineWidth=2;
+      for (let r=0;r<3;r++){
+        ctx.save(); ctx.rotate(t*0.0006*(r%2===0?1:-1) + r);
+        ctx.beginPath(); ctx.ellipse(0,-60,90+r*22,20+r*8,0,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle=pal.accent;
+      ctx.beginPath(); ctx.arc(-50,-140,5,0,Math.PI*2); ctx.arc(50,-140,5,0,Math.PI*2); ctx.arc(0,-155,5,0,Math.PI*2); ctx.fill();
+    }
   } else if (type === 'GHOST') {
-    ctx.globalAlpha=0.5; ctx.shadowBlur=25; ctx.shadowColor='#10b981';
+    ctx.globalAlpha=0.5; ctx.shadowBlur=25; ctx.shadowColor=pal.glow;
     const bob=Math.sin(t*0.003)*12;
     ctx.translate(0,bob-20);
-    ctx.fillStyle='#064e3b';
+    ctx.fillStyle=pal.c1;
     ctx.beginPath(); ctx.moveTo(-110,15); ctx.quadraticCurveTo(0,70,110,15);
     ctx.lineTo(80,-35); ctx.lineTo(-80,-35); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle='#34d399'; ctx.lineWidth=3; ctx.stroke();
-    ctx.globalAlpha=0.5; ctx.fillStyle='#14532d';
+    ctx.strokeStyle=pal.accent; ctx.lineWidth=3; ctx.stroke();
+    ctx.globalAlpha=0.5; ctx.fillStyle=pal.c2;
     for(let m=-50;m<=50;m+=50){
       ctx.fillRect(m-4,-130,8,100);
       ctx.beginPath(); ctx.moveTo(m,-120); ctx.lineTo(m+55,-80); ctx.lineTo(m,-45); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
+    if (pal.fx === 'blood') {
+      // Arca Maldita: goteo rojo cayendo de las velas
+      ctx.globalAlpha = 1;
+      for (let i=0;i<5;i++){
+        const dx = -70 + i*35;
+        const dy = -30 + ((t*0.1 + i*30) % 90);
+        ctx.fillStyle = `rgba(220,38,38,${0.8 - (dy+30)/120})`;
+        ctx.beginPath(); ctx.ellipse(dx,dy,2,5,0,0,Math.PI*2); ctx.fill();
+      }
+    }
   } else if (type === 'LEVIATHAN') {
-    ctx.shadowBlur=20; ctx.shadowColor='#3b82f6';
+    ctx.shadowBlur=20; ctx.shadowColor=pal.glow;
     for(let s=0;s<6;s++){
       const sx=-150+(s*55), sy=Math.sin(t*0.004+s*1.5)*45-25;
       const g=ctx.createLinearGradient(sx-25,0,sx+25,0);
-      g.addColorStop(0,'#1d4ed8'); g.addColorStop(0.5,'#1e40af'); g.addColorStop(1,'#172554');
+      g.addColorStop(0,pal.c1); g.addColorStop(0.5,pal.c2); g.addColorStop(1,pal.c3);
       ctx.fillStyle=g;
       ctx.beginPath(); ctx.arc(sx,sy,s===5?32:25-(s*1.5),0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#60a5fa';
+      ctx.fillStyle=pal.accent;
       ctx.beginPath(); ctx.moveTo(sx,sy-20); ctx.lineTo(sx-10,sy-45); ctx.lineTo(sx+10,sy-20); ctx.fill();
+      if (pal.fx === 'lightning' && Math.random() < 0.04) {
+        ctx.strokeStyle = pal.accent; ctx.lineWidth = 2; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.moveTo(sx,sy-20);
+        ctx.lineTo(sx+8,sy-55); ctx.lineTo(sx-4,sy-65); ctx.lineTo(sx+10,sy-95);
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
     }
   } else if (type === 'FORTRESS') {
-    ctx.shadowBlur=15; ctx.shadowColor='#4b5563';
-    ctx.fillStyle='#1f2937'; ctx.fillRect(-120,-180,240,240);
-    ctx.strokeStyle='#6b7280'; ctx.lineWidth=4; ctx.strokeRect(-120,-180,240,240);
-    ctx.fillStyle='#111827';
+    const shake = Math.sin(t*0.01)*2; // ligero temblor: se siente "vivo"
+    ctx.translate(shake, 0);
+    ctx.shadowBlur=15; ctx.shadowColor=pal.glow;
+    const g=ctx.createLinearGradient(0,-180,0,60);
+    g.addColorStop(0,pal.c1); g.addColorStop(1,pal.c2);
+    ctx.fillStyle=g; ctx.fillRect(-120,-180,240,240);
+    ctx.strokeStyle=pal.accent; ctx.lineWidth=4; ctx.strokeRect(-120,-180,240,240);
+    ctx.fillStyle=pal.c3;
     for(let b=-120;b<120;b+=60){ ctx.fillRect(b+10,-210,40,30); ctx.strokeRect(b+10,-210,40,30); }
-    ctx.fillStyle='#030712'; ctx.shadowBlur=25; ctx.shadowColor='#ef4444';
+    const eyePulse = 0.6 + Math.abs(Math.sin(t*0.005))*0.4;
+    ctx.fillStyle='#030712'; ctx.shadowBlur=25; ctx.shadowColor=pal.glow;
     ctx.fillRect(-55,-120,35,25); ctx.fillRect(20,-120,35,25);
-    ctx.fillStyle='#ef4444';
+    ctx.fillStyle=pal.glow; ctx.globalAlpha=eyePulse;
     ctx.beginPath(); ctx.arc(-37,-107,6,0,Math.PI*2); ctx.arc(37,-107,6,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.globalAlpha=1; ctx.shadowBlur=0;
+
+    if (pal.fx === 'crystals') {
+      // Bastión de Obsidiana: cristales morados sobresaliendo
+      ctx.fillStyle = pal.accent; ctx.shadowBlur=12; ctx.shadowColor=pal.glow;
+      [[-100,-180],[100,-180],[-60,-185],[60,-185]].forEach(([cx,cy])=>{
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx-8,cy+30); ctx.lineTo(cx+8,cy+30); ctx.closePath(); ctx.fill();
+      });
+      ctx.shadowBlur=0;
+    } else if (pal.fx === 'crown') {
+      // Señor del Fin del Mundo: corona dorada flotando arriba, con aura
+      const cy = -230 + Math.sin(t*0.0025)*6;
+      ctx.save(); ctx.translate(0,cy);
+      ctx.shadowBlur=30; ctx.shadowColor=pal.glow;
+      ctx.fillStyle='#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(-45,15); ctx.lineTo(-45,-10); ctx.lineTo(-25,8); ctx.lineTo(0,-18); ctx.lineTo(25,8); ctx.lineTo(45,-10); ctx.lineTo(45,15);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#f87171';
+      ctx.beginPath(); ctx.arc(0,-14,4,0,Math.PI*2); ctx.fill();
+      ctx.restore(); ctx.shadowBlur=0;
+    }
   }
   ctx.restore();
 }
@@ -474,8 +559,9 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     const ctx = canvas.getContext('2d');
     canvas.width = CANVAS_W; canvas.height = CANVAS_H;
 
-    if (levelDef.boss) audio.playMusic('boss');
-    else audio.playMusic('battle');
+    const actIdx = Math.floor((levelDef.n - 1) / 20); // agrupa cada 2 actos (10 niveles c/u)
+    if (levelDef.boss) audio.playMusic('boss', actIdx);
+    else audio.playMusic('battle', actIdx);
 
     const { Engine, Bodies, Composite, Body, Events } = Matter;
     const engine = Engine.create({ gravity: { x: levelDef.windX * 0.3, y: levelDef.gravity } });
@@ -567,7 +653,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         else if (levelDef.boss.type === 'FORTRESS') { ex = cxBase-40+(i%2===0?-60:40); ey = MAPA_H-160-(i*50); }
       }
       const bE = createSkullBody(ex, ey, 'skull_enemigo');
-      const hpE = 2 + Math.floor(levelDef.n / 25);
+      const hpE = 2 + Math.floor(levelDef.n / 25) + (levelDef.boss ? 1 : 0);
       skullsEnemigos.push({ body: bE, hp: hpE, maxHp: hpE, angle: 0, dead: false, vx: 0, vy: 0, baseX: ex, baseY: ey });
       Composite.add(world, bE);
     }
@@ -682,24 +768,36 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
 
       const targetX=objetivoPos.x, targetY=objetivoPos.y;
-      const distX=pivC.x-targetX;
-      let baseVx=-(11.5+distX/86);
-      let baseVy=-12.5-(distX/115)+((pivC.y-targetY)*0.04);
-      const compensarViento=levelDef.windX*0.3*26;
-      baseVx-=compensarViento;
-      const mtnBodies=Composite.allBodies(world).filter(b=>b.label.startsWith('mountain_'));
-      let maxMtnH=0; mtnBodies.forEach(m=>{if(m.mountainData&&m.mountainData.h>maxMtnH)maxMtnH=m.mountainData.h;});
-      if(maxMtnH>0){baseVy-=maxMtnH*0.038;baseVx*=0.92;}
 
-      // Corrección aprendida: si sus tiros anteriores cayeron desviados, se ajusta
-      baseVx += G.cpuAimBias.x;
-      baseVy += G.cpuAimBias.y;
+      // ---- PUNTERÍA REAL (matemática, no "a ojo") ----
+      // El motor físico aplica viento como una aceleración horizontal
+      // constante a toda bala (ax) además de la gravedad (ay). Con esos dos
+      // datos y un tiempo de vuelo T, se puede despejar EXACTAMENTE la
+      // velocidad inicial necesaria para caer justo en el objetivo. Esto
+      // reemplaza la fórmula aproximada de antes (que a veces fallaba feo:
+      // tiros verticales o balas que pasaban de largo).
+      const ax = levelDef.windX * 0.3;
+      const ay = levelDef.gravity;
+      const dist = Math.abs(pivC.x - targetX);
 
-      // Límite de seguridad infranqueable: pase lo que pase arriba, el disparo
-      // SIEMPRE tiene que ir hacia el jugador con fuerza real. Esto evita
-      // por completo que la CPU pueda terminar tirando "al cielo".
-      baseVx = Math.min(-6, baseVx);
-      baseVy = Math.max(-19, Math.min(-6, baseVy));
+      // Variedad real de "velocidad" de disparo: un T chico = tiro rápido y
+      // directo, un T grande = arco lento y alto. Cambia en cada disparo.
+      const speedFactor = 0.75 + Math.random() * 0.7;
+      let T = Math.max(0.55, 0.5 + dist / 620) * speedFactor;
+
+      // Si hay una montaña alta de por medio, se le pide un arco más alto
+      // para intentar pasarla por arriba.
+      const mtnBodies = Composite.allBodies(world).filter(b=>b.label.startsWith('mountain_'));
+      let maxMtnH = 0; mtnBodies.forEach(m=>{if(m.mountainData&&m.mountainData.h>maxMtnH)maxMtnH=m.mountainData.h;});
+      if (maxMtnH > 70) T *= 1.1 + maxMtnH * 0.0012;
+
+      let baseVx = (targetX - pivC.x - 0.5*ax*T*T) / T;
+      let baseVy = (targetY - pivC.y - 0.5*ay*T*T) / T;
+
+      // Límite de seguridad: nunca debe poder salir disparado casi vertical
+      // ni con velocidad ridícula, pase lo que pase con el cálculo de arriba.
+      baseVx = Math.min(-5, baseVx);
+      baseVy = Math.max(-26, Math.min(-4, baseVy));
 
       const acc=levelDef.cpuAccuracy||0.5;
       let scatter=(1-acc)*5.5;
@@ -741,20 +839,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
     }
 
-    // La CPU corrige su puntería para el próximo disparo según qué tan lejos
-    // cayó este, como si estuviera "agarrando la distancia" al objetivo.
-    function aprenderDeTiro(bala) {
-      const errX = bala.targetPos.x - bala.position.x;
-      const errY = bala.targetPos.y - bala.position.y;
-      // Límites chicos a propósito: el baseVx normal ronda entre -11 y -25.
-      // Si el sesgo pudiera llegar a valores grandes, alcanzaría a invertir
-      // la dirección del disparo (de negativo a positivo) y el cañón
-      // terminaría tirando casi vertical, como "al cielo". Nunca debe poder
-      // superar la magnitud típica del tiro base.
-      G.cpuAimBias.x = Math.max(-8, Math.min(8, G.cpuAimBias.x + errX * 0.08));
-      G.cpuAimBias.y = Math.max(-6, Math.min(6, G.cpuAimBias.y + errY * 0.015));
-    }
-
     Events.on(engine, 'collisionStart', ev => {
       ev.pairs.forEach(p => {
         const A=p.bodyA, B=p.bodyB;
@@ -784,7 +868,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           audio.playSFX('hit');
           addFX(bala.position.x,bala.position.y,'rock_hit');
           if(mtn.hp<=0){audio.playSFX('explode');addFX(mtn.position.x,mtn.position.y,'mountain_destroy');if(!G.cuerposPorBorrar.includes(mtn))G.cuerposPorBorrar.push(mtn);}
-          if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
           return;
         }
@@ -793,7 +876,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           audio.playSFX('splash');
           // CAMBIO: Splash del agua sube 3 píxeles (de MAPA_H-180 a MAPA_H-183)
           addFX(bala.position.x,MAPA_H-183,'splash');
-          if(bala.bando==='compu'&&bala.targetPos) aprenderDeTiro(bala);
           if(!G.cuerposPorBorrar.includes(bala))G.cuerposPorBorrar.push(bala);
         }
 
@@ -1496,7 +1578,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
           } else { G.camState='linger'; G.lingerTimer=80; }
           break;
         }
-        case 'linger': G.lingerTimer--; if(G.lingerTimer<=0){G.camState='returning';if(G.turno==='cpu'&&!G.gameOver){G.tiempoDisparoCpu=performance.now()+1200;setCharAction('enemy','orders');}} break;
+        case 'linger': G.lingerTimer--; if(G.lingerTimer<=0){G.camState='returning';if(G.turno==='cpu'&&!G.gameOver){G.tiempoDisparoCpu=performance.now()+(levelDef.boss?700:1200);setCharAction('enemy','orders');}} break;
         case 'returning':
           G.camTargetX=G.turno==='jugador'?0:MAPA_W-CANVAS_W; G.camTargetY=0; G.camTargetZoom=1; G.projTrailPoints=[];
           if(Math.abs(G.camX-G.camTargetX)<5&&Math.abs(G.camZoom-1)<0.02)G.camState='idle';
@@ -1667,7 +1749,7 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       }
       
       if(levelDef.boss){
-        drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp);
+        drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp, levelDef.boss.name);
         ctx.save(); ctx.font='bold 22px Georgia,serif'; ctx.fillStyle='#ef4444';
         ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor='#000';
         ctx.fillText(levelDef.boss.name, G.cpuShipPos.x, G.cpuShipPos.y-185); ctx.restore();
