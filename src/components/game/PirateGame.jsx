@@ -391,18 +391,34 @@ function drawBoss(ctx, bx, by, type, t, bossName, sprites) {
 
   // El Leviatán del Abismo (nivel 30) usa arte real en vez de la silueta genérica
   if (bossName === '🐉 LEVIATÁN DEL ABISMO' && sprites?.swimImg?.complete && sprites.swimImg.naturalWidth > 0) {
-    const attacking = sprites.attacking;
-    const img = (attacking && sprites.fireImg?.complete) ? sprites.fireImg : sprites.swimImg;
     const bob = Math.sin(t * 0.0025) * 10;
     const sway = Math.sin(t * 0.0018) * 0.025;
-    const w = 480, h = w * (img.naturalHeight / img.naturalWidth);
     ctx.save();
     ctx.translate(0, bob - 60);
     ctx.rotate(sway);
-    ctx.shadowBlur = 25; ctx.shadowColor = '#0ea5e9';
-    // La cabeza ya está del lado izquierdo de la imagen (mirando hacia el
-    // jugador de forma natural), así que no hace falta voltearla.
-    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.shadowBlur = 28; ctx.shadowColor = '#0ea5e9';
+
+    if (sprites.attacking && sprites.fireImg?.complete) {
+      // ---- ATAQUE: aliento de fuego ----
+      const img = sprites.fireImg;
+      const w = 620, h = w * (img.naturalHeight / img.naturalWidth);
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    } else {
+      // ---- CICLO EN REPOSO: nadar la mayor parte del tiempo, con un
+      // "rugido" de cabeza de vez en cuando para que se sienta vivo ----
+      const cyclePos = t % 5200;
+      const roaring = cyclePos > 4200; // últimos ~1s del ciclo de 5.2s
+      if (roaring && sprites.headRoarImg?.complete) {
+        const img = sprites.headRoarImg;
+        const flick = Math.floor(t / 90) % 2 === 0 ? sprites.headRoarImg : (sprites.headCalmImg?.complete ? sprites.headCalmImg : img);
+        const w = 300, h = w * (flick.naturalHeight / flick.naturalWidth);
+        ctx.drawImage(flick, -w / 2 - 140, -h / 2, w, h);
+      } else {
+        const img = sprites.swimImg;
+        const w = 640, h = w * (img.naturalHeight / img.naturalWidth);
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      }
+    }
     ctx.restore();
     ctx.restore();
     return;
@@ -541,6 +557,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
   const imgAllyMinionHurtRef = useRef(new Image());
   const imgLeviathanSwimRef = useRef(new Image());
   const imgLeviathanFireRef = useRef(new Image());
+  const imgLeviathanHeadRoarRef = useRef(new Image());
+  const imgLeviathanHeadCalmRef = useRef(new Image());
 
   const skullSkin = storeData?.skullSkin || 'default';
   const shipSkin = storeData?.shipSkin || 'classic';
@@ -574,6 +592,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     imgAllyMinionHurtRef.current.src = '/images/ally_minion_hurt.png';
     imgLeviathanSwimRef.current.src = '/images/leviathan_swim.png';
     imgLeviathanFireRef.current.src = '/images/leviathan_fire.png';
+    imgLeviathanHeadRoarRef.current.src = '/images/leviathan_head_roar.png';
+    imgLeviathanHeadCalmRef.current.src = '/images/leviathan_head_calm.png';
   }, []);
 
   useEffect(() => {
@@ -1775,6 +1795,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
         drawBoss(ctx, G.cpuShipPos.x, G.cpuShipPos.y, levelDef.boss.type, timestamp, levelDef.boss.name, {
           swimImg: imgLeviathanSwimRef.current,
           fireImg: imgLeviathanFireRef.current,
+          headRoarImg: imgLeviathanHeadRoarRef.current,
+          headCalmImg: imgLeviathanHeadCalmRef.current,
           attacking: G.charAnim.enemy.action === 'attack',
         });
         ctx.save(); ctx.font='bold 22px Georgia,serif'; ctx.fillStyle='#ef4444';
