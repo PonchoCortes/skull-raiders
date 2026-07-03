@@ -695,12 +695,6 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
       baseVx += G.cpuAimBias.x;
       baseVy += G.cpuAimBias.y;
 
-      // Límite de seguridad infranqueable: pase lo que pase arriba, el disparo
-      // SIEMPRE tiene que ir hacia el jugador con fuerza real. Esto evita
-      // por completo que la CPU pueda terminar tirando "al cielo".
-      baseVx = Math.min(-6, baseVx);
-      baseVy = Math.max(-19, Math.min(-6, baseVy));
-
       const acc=levelDef.cpuAccuracy||0.5;
       let scatter=(1-acc)*5.5;
       if(levelDef.n>=15)scatter*=0.15;
@@ -746,13 +740,11 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     function aprenderDeTiro(bala) {
       const errX = bala.targetPos.x - bala.position.x;
       const errY = bala.targetPos.y - bala.position.y;
-      // Límites chicos a propósito: el baseVx normal ronda entre -11 y -25.
-      // Si el sesgo pudiera llegar a valores grandes, alcanzaría a invertir
-      // la dirección del disparo (de negativo a positivo) y el cañón
-      // terminaría tirando casi vertical, como "al cielo". Nunca debe poder
-      // superar la magnitud típica del tiro base.
-      G.cpuAimBias.x = Math.max(-8, Math.min(8, G.cpuAimBias.x + errX * 0.08));
-      G.cpuAimBias.y = Math.max(-6, Math.min(6, G.cpuAimBias.y + errY * 0.015));
+      G.cpuAimBias.x = Math.max(-45, Math.min(45, G.cpuAimBias.x + errX * 0.15));
+      // El eje Y es mucho más sensible en una trayectoria parabólica: un
+      // ajuste chico cambia mucho el ángulo. Se corrige muy suave y con un
+      // límite pequeño para que nunca "se dispare" y termine tirando al cielo.
+      G.cpuAimBias.y = Math.max(-10, Math.min(10, G.cpuAimBias.y + errY * 0.025));
     }
 
     Events.on(engine, 'collisionStart', ev => {
