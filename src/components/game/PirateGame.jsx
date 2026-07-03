@@ -400,8 +400,8 @@ function drawBoss(ctx, bx, by, type, t, bossName, sprites) {
     ctx.translate(0, bob - 60);
     ctx.rotate(sway);
     ctx.shadowBlur = 25; ctx.shadowColor = '#0ea5e9';
-    // La imagen mira a la izquierda, hay que voltearla para que mire al jugador
-    ctx.scale(-1, 1);
+    // La cabeza ya está del lado izquierdo de la imagen (mirando hacia el
+    // jugador de forma natural), así que no hace falta voltearla.
     ctx.drawImage(img, -w / 2, -h / 2, w, h);
     ctx.restore();
     ctx.restore();
