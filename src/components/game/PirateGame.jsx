@@ -740,11 +740,8 @@ export default function PirateGame({ levelDef, onLevelComplete, onLevelFail, sto
     function aprenderDeTiro(bala) {
       const errX = bala.targetPos.x - bala.position.x;
       const errY = bala.targetPos.y - bala.position.y;
-      G.cpuAimBias.x = Math.max(-45, Math.min(45, G.cpuAimBias.x + errX * 0.15));
-      // El eje Y es mucho más sensible en una trayectoria parabólica: un
-      // ajuste chico cambia mucho el ángulo. Se corrige muy suave y con un
-      // límite pequeño para que nunca "se dispare" y termine tirando al cielo.
-      G.cpuAimBias.y = Math.max(-10, Math.min(10, G.cpuAimBias.y + errY * 0.025));
+      G.cpuAimBias.x = Math.max(-50, Math.min(50, G.cpuAimBias.x + errX * 0.2));
+      G.cpuAimBias.y = Math.max(-35, Math.min(35, G.cpuAimBias.y + errY * 0.2));
     }
 
     Events.on(engine, 'collisionStart', ev => {
